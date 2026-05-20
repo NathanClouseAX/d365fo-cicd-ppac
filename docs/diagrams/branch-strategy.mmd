@@ -1,0 +1,46 @@
+---
+title: Branch Strategy & Deployment Flow
+---
+flowchart LR
+    subgraph Development
+        F1[feature/inventory]
+        F2[feature/payments]
+        F3[bug/calc-error]
+    end
+
+    subgraph "PR Gate"
+        PR_TEST[Integration Test<br/>Compile + Provision + Deploy<br/>+ Test + Teardown]
+    end
+
+    subgraph Integration
+        MAIN[main<br/>Build only - no deploy<br/>All code validated via PR]
+    end
+
+    subgraph Release
+        REL[release/sprint-12]
+    end
+
+    subgraph Environments
+        UAT[UAT]
+        DM[DM]
+        GOLD[GOLD]
+        PROD[PROD]
+    end
+
+    F1 -->|PR| PR_TEST
+    F2 -->|PR| PR_TEST
+    F3 -->|PR| PR_TEST
+    PR_TEST -->|pass| MAIN
+    MAIN -->|sprint end: cut branch| REL
+    REL -->|deploy.yml| UAT
+    UAT -->|succeeded| DM
+    DM -->|release.yml| GOLD
+    GOLD -->|approval| PROD
+
+    style PR_TEST fill:#e3f2fd,stroke:#2196f3
+    style MAIN fill:#e8f5e9,stroke:#4caf50
+    style REL fill:#e3f2fd,stroke:#2196f3
+    style UAT fill:#fff3e0,stroke:#ff9800
+    style DM fill:#fff3e0,stroke:#ff9800
+    style GOLD fill:#fce4ec,stroke:#f44336
+    style PROD fill:#fce4ec,stroke:#f44336

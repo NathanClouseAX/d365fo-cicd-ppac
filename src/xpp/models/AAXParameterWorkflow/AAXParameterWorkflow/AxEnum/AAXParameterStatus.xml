@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxEnum xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXParameterStatus</Name>
+	<Label>@Dimension:HierarchyStatus</Label>
+	<EnumValues>
+		<AxEnumValue>
+			<Name>Draft</Name>
+			<Label>@Dimension:HierarchyStatusDraft</Label>
+			<Value>1</Value>
+		</AxEnumValue>
+		<AxEnumValue>
+			<Name>Active</Name>
+			<Label>@Dimension:HierarchyStatusActive</Label>
+			<Value>2</Value>
+		</AxEnumValue>
+	</EnumValues>
+</AxEnum>

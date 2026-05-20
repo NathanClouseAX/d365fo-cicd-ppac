@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXParameterCompare</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// Base class for comparing a versioned parameter snapshot against the current live values.
+/// Uses factory pattern via constuct() to resolve the correct subclass based on the version
+/// record's table type. Subclasses populate the AAXtmpParameterCompare temp table with differences.
+/// </summary>
+public class AAXParameterCompare
+{
+    AAXtmpParameterCompare AAXtmpParameterCompare;
+    Common versionRecord;
+
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>constuct</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Factory method that resolves the correct comparison subclass based on the
+    /// version record's table type. Extend the switch statement when adding support
+    /// for additional parameter table types beyond SystemParameters.
+    /// </summary>
+    /// <param name = "common">A version record (e.g., AAXSystemParametersVersion)</param>
+    /// <returns>A type-specific AAXParameterCompare subclass instance</returns>
+    public static AAXParameterCompare constuct(Common common)
+    {
+        AAXParameterCompare AAXParameterCompare;
+
+        switch(common.TableId)
+        {
+            case tableNum(AAXSystemParametersVersion):
+                AAXParameterCompare = new AAXParameterCompare_SystemParameters();
+                AAXParameterCompare.parmVersionRecord(common);
+                return AAXParameterCompare;
+
+            default:
+                // Default to SystemParameters comparison for unrecognized types
+                AAXParameterCompare = new AAXParameterCompare_SystemParameters();
+                AAXParameterCompare.parmVersionRecord(common);
+                return AAXParameterCompare;
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>parmVersionRecord</Name>
+				<Source><![CDATA[
+    public Common parmVersionRecord(Common _versionRecord = versionRecord)
+    {
+        versionRecord = _versionRecord;
+        return versionRecord;
+    
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>GetData</Name>
+				<Source><![CDATA[
+    public AAXtmpParameterCompare GetData()
+    {
+        return AAXtmpParameterCompare;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

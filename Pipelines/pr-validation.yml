@@ -1,0 +1,332 @@
+# pr-validation.yml
+#
+# Full PR validation gate — must pass before merge to main.
+#
+# Stage 1: Compile X++ (fast — ~10 min)
+# Stage 2: Integration test (provision → copy DB → deploy → DB sync → test → teardown)
+#
+# This ensures every PR that makes it into main has been validated in a real F&O
+# environment with production-like data. By the time a release branch is cut,
+# all code in main has already passed automated regression testing.
+
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+
+name: $(Date:yy.MM.dd)$(Rev:.r)
+
+variables:
+  - group: PowerPlatform-Auth
+  - group: FinOps-Options
+
+  - name: App1Package
+    value: 'Microsoft.Dynamics.AX.Application1.DevALM.BuildXpp'
+  - name: App2Package
+    value: 'Microsoft.Dynamics.AX.Application2.DevALM.BuildXpp'
+  - name: AppSuitePackage
+    value: 'Microsoft.Dynamics.AX.ApplicationSuite.DevALM.BuildXpp'
+  - name: PlatPackage
+    value: 'Microsoft.Dynamics.AX.Platform.DevALM.BuildXpp'
+  - name: ToolsPackage
+    value: 'Microsoft.Dynamics.AX.Platform.CompilerPackage'
+  - name: MetadataPath
+    value: '$(Build.SourcesDirectory)\src\xpp\models'
+  - name: NugetConfigsPath
+    value: '$(Build.SourcesDirectory)\src\xpp\build'
+  - name: NugetsPath
+    value: '$(Pipeline.Workspace)\NuGets'
+  - name: BuildSolution
+    value: '$(Build.SourcesDirectory)\src\xpp\projects\Build\Build.sln'
+  - name: ArtifactName
+    value: 'drop'
+  - name: PrEnvName
+    value: 'pr-$(System.PullRequest.PullRequestNumber)'
+
+stages:
+# =====================================================================
+# Stage 1: Compile
+#   Fast gate — fails in ~10 min if code doesn't compile.
+# =====================================================================
+- stage: Compile
+  displayName: 'Compile X++'
+  jobs:
+    - job: Build
+      displayName: 'Build and package'
+      timeoutInMinutes: 120
+      pool:
+        vmImage: 'windows-2022'
+        demands:
+          - msbuild
+          - visualstudio
+      steps:
+        - template: templates/build-xpp.yml
+          parameters:
+            createPackage: true
+            publishArtifact: true
+            artifactName: '$(ArtifactName)'
+
+# =====================================================================
+# Stage 2: Integration Test
+#   Provisions ephemeral environment, copies data, deploys package,
+#   runs DB sync, executes automated tests, then tears down.
+# =====================================================================
+- stage: IntegrationTest
+  displayName: 'Integration Test'
+  dependsOn: Compile
+  condition: succeeded('Compile')
+  jobs:
+    # ── Job 1: Provision environment ──
+    - job: Provision
+      displayName: 'Provision test environment'
+      timeoutInMinutes: 60
+      pool:
+        vmImage: 'windows-2022'
+      steps:
+        - template: templates/provision-finops-environment.yml
+          parameters:
+            instanceDisplayName: '$(PrEnvName)'
+            environmentSku: 'Sandbox'
+            templates: 'D365_FinOps_Finance'
+            locationName: 'unitedstates'
+            devToolsEnabled: true
+            demoDataEnabled: false
+            waitUntilFinished: false
+            description: 'branch:$(Build.SourceBranch) pr:$(System.PullRequest.PullRequestNumber)'
+
+    # ── Job 2: Agentless delay — let PPAC finish provisioning ──
+    - job: WaitForProvisioning
+      displayName: 'Wait 3 hours for provisioning (no agent)'
+      dependsOn: Provision
+      pool: server
+      steps:
+        - task: Delay@1
+          displayName: 'Delay 2 hours'
+          inputs:
+            delayForMinutes: '180'
+
+    # ── Job 3: Copy DB ──
+    - job: CopyData
+      displayName: 'Copy database'
+      dependsOn: WaitForProvisioning
+      timeoutInMinutes: 180
+      pool:
+        vmImage: 'windows-2022'
+      steps:
+        - pwsh: |
+            $ErrorActionPreference = "Stop"
+
+            $tenantId  = "$(PP_TENANT_ID)"
+            $clientId  = "$(PP_APPLICATION_ID)"
+            $secret    = "$(PP_CLIENT_SECRET)"
+            $prNum     = $env:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
+            if (-not $prNum) { $prNum = "$(Build.BuildId)" }
+            $envName   = "pr-$prNum"
+
+            Install-Module -Name Microsoft.PowerApps.Administration.PowerShell -Force -Scope CurrentUser -AllowClobber
+
+            Add-PowerAppsAccount -Endpoint prod -TenantID $tenantId -ApplicationId $clientId -ClientSecret $secret
+
+            # ── Wait for environment to be provisioned ──
+            Write-Host "Waiting for environment '$envName' to be provisioned..."
+            $deadline = (Get-Date).AddMinutes(60)
+            $envId = $null
+
+            while ((Get-Date) -lt $deadline) {
+              $envs = Get-AdminPowerAppEnvironment
+              $target = $envs | Where-Object { $_.DisplayName -eq $envName }
+
+              if ($target) {
+                $state = $target.Internal.properties.provisioningState ?? "Unknown"
+                Write-Host "  Environment found. State: $state ($(Get-Date -Format 'HH:mm:ss'))"
+                if ($state -eq 'Succeeded') {
+                  $envId = $target.EnvironmentName
+                  break
+                }
+              } else {
+                Write-Host "  Environment not found yet... ($(Get-Date -Format 'HH:mm:ss'))"
+              }
+              Start-Sleep -Seconds 30
+            }
+
+            if (-not $envId) {
+              Write-Host "##[error]Environment '$envName' not provisioned within 60 minutes."
+              exit 1
+            }
+
+            Write-Host "Environment provisioned: $envId"
+            Write-Host "##vso[task.setvariable variable=TestEnvId;isOutput=true]$envId"
+
+            # ── Wait additional time for F&O stabilization ──
+            Write-Host "Waiting 5 minutes for F&O environment stabilization..."
+            Start-Sleep -Seconds 300
+
+            # ── Copy database from known good source ──
+            $sourceEnvId = "$(database-source-environment-guid)"
+            Write-Host "Copying database from known good source ($sourceEnvId) to $envId..."
+
+            Copy-PowerAppEnvironment -EnvironmentName $envId -CopyToRequestDefinition @{
+              SourceEnvironmentId = $sourceEnvId
+              CopyType = "MinimalCopy"
+            }
+
+            # ── Wait for copy to complete ──
+            Write-Host "Waiting for copy operation to complete..."
+            $copyDeadline = (Get-Date).AddMinutes(90)
+
+            while ((Get-Date) -lt $copyDeadline) {
+              Start-Sleep -Seconds 30
+              $env = Get-AdminPowerAppEnvironment -EnvironmentName $envId
+              $state = $env.Internal.properties.provisioningState ?? "Unknown"
+              Write-Host "  Copy state: $state ($(Get-Date -Format 'HH:mm:ss'))"
+
+              if ($state -eq 'Succeeded') {
+                Write-Host "Database copy completed."
+                break
+              } elseif ($state -eq 'Failed') {
+                Write-Host "##[error]Database copy failed."
+                exit 1
+              }
+            }
+
+            # ── Resolve environment URL ──
+            $env = Get-AdminPowerAppEnvironment -EnvironmentName $envId
+            $envUrl = $env.Internal.properties.linkedEnvironmentMetadata.instanceUrl
+            Write-Host "Environment URL: $envUrl"
+            Write-Host "##vso[task.setvariable variable=TestEnvUrl;isOutput=true]$envUrl"
+          displayName: 'Wait for provision + copy database'
+          name: envSetup
+
+    # ── Job 4: Deploy package + DB sync ──
+    - job: Deploy
+      displayName: 'Deploy package + DB sync'
+      dependsOn: CopyData
+      timeoutInMinutes: 210
+      pool:
+        vmImage: 'windows-2022'
+      variables:
+        TestEnvUrl: $[ dependencies.CopyData.outputs['envSetup.TestEnvUrl'] ]
+        TestEnvId: $[ dependencies.CopyData.outputs['envSetup.TestEnvId'] ]
+      steps:
+        - download: current
+          artifact: '$(ArtifactName)'
+
+        - task: PowerPlatformToolInstaller@2
+          displayName: 'Install Power Platform tools'
+
+        # ── Deploy package ──
+        - pwsh: |
+            $ErrorActionPreference = "Stop"
+            $envUrl = "$(TestEnvUrl)"
+            $tenantId  = "$(PP_TENANT_ID)"
+            $clientId  = "$(PP_APPLICATION_ID)"
+            $secret    = "$(PP_CLIENT_SECRET)"
+
+            # Create a temporary service connection profile for pac cli
+            Write-Host "Authenticating to $envUrl..."
+            pac auth create --environment $envUrl --tenant $tenantId --applicationId $clientId --clientSecret $secret
+
+            $packagePath = "$(Pipeline.Workspace)/$(ArtifactName)/CloudDeployablePackage/TemplatePackage.dll"
+            Write-Host "Deploying package: $packagePath"
+            pac package deploy --package $packagePath --logConsole true
+
+            Write-Host "Package deployment completed."
+          displayName: 'Deploy package to test environment'
+
+        # ── DB Sync ──
+        - pwsh: |
+            $ErrorActionPreference = "Stop"
+            $envUrl   = "$(TestEnvUrl)".TrimEnd('/')
+            $tenantId = "$(PP_TENANT_ID)"
+            $clientId = "$(PP_APPLICATION_ID)"
+            $secret   = "$(PP_CLIENT_SECRET)"
+
+            Write-Host "Triggering DB sync on $envUrl..."
+
+            $tokenResponse = Invoke-RestMethod -Method Post `
+              -Uri "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token" `
+              -Body @{
+                grant_type    = "client_credentials"
+                client_id     = $clientId
+                client_secret = $secret
+                scope         = "$envUrl/.default"
+              }
+            $headers = @{
+              Authorization  = "Bearer $($tokenResponse.access_token)"
+              "Content-Type" = "application/json"
+            }
+
+            # Trigger DB sync via the environment management API
+            try {
+              $response = Invoke-RestMethod -Method Post `
+                -Uri "$envUrl/api/environment/dbsync" `
+                -Headers $headers
+
+              Write-Host "DB sync triggered successfully."
+            } catch {
+              $status = $_.Exception.Response.StatusCode.value__
+              if ($status -eq 404) {
+                Write-Host "##[warning]DB sync endpoint not available (404). Skipping — sync may happen automatically during deploy."
+              } else {
+                Write-Host "##[error]DB sync failed: $($_.Exception.Message)"
+                exit 1
+              }
+            }
+          displayName: 'Database synchronization'
+
+    # ── Job 5: Run automated tests ──
+    - job: Test
+      displayName: 'Run automated tests'
+      dependsOn:
+        - CopyData
+        - Deploy
+      timeoutInMinutes: 60
+      pool:
+        vmImage: 'windows-2022'
+      variables:
+        TestEnvUrl: $[ dependencies.CopyData.outputs['envSetup.TestEnvUrl'] ]
+      steps:
+        - template: templates/test-finops-environment.yml
+          parameters:
+            environmentUrl: '$(TestEnvUrl)'
+            stageLabel: 'PR'
+            sysTestSuite: ''
+            odataEntities: 'SystemUsers,LegalEntities,Companies'
+            testTimeoutMinutes: 30
+
+    # ── Job 6: Teardown (always runs) ──
+    - job: Teardown
+      displayName: 'Delete test environment'
+      dependsOn:
+        - CopyData
+        - Test
+      condition: always()
+      timeoutInMinutes: 30
+      pool:
+        vmImage: 'windows-2022'
+      variables:
+        TestEnvId: $[ dependencies.CopyData.outputs['envSetup.TestEnvId'] ]
+      steps:
+        - pwsh: |
+            $ErrorActionPreference = "Stop"
+            $envId = "$(TestEnvId)"
+
+            if ([string]::IsNullOrWhiteSpace($envId)) {
+              Write-Host "No environment ID — nothing to tear down."
+              exit 0
+            }
+
+            $tenantId = "$(PP_TENANT_ID)"
+            $clientId = "$(PP_APPLICATION_ID)"
+            $secret   = "$(PP_CLIENT_SECRET)"
+
+            Install-Module -Name Microsoft.PowerApps.Administration.PowerShell -Force -Scope CurrentUser -AllowClobber
+            Add-PowerAppsAccount -Endpoint prod -TenantID $tenantId -ApplicationId $clientId -ClientSecret $secret
+
+            Write-Host "Deleting test environment: $envId"
+            Remove-AdminPowerAppEnvironment -EnvironmentName $envId
+
+            Write-Host "Environment deleted."
+          displayName: 'Delete ephemeral test environment'

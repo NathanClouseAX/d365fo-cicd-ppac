@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>Class1</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+using Microsoft.Dynamics.ApplicationPlatform.Environment;
+using Microsoft.Dynamics.ApplicationPlatform.Environment.Settings;
+using Microsoft.Dynamics.DataverseSdk;
+using Microsoft.Dynamics.HttpCommunication;
+using Microsoft.Xrm.Sdk;
+using Microsoft.Xrm.Sdk.Query;
+
+internal final class Class1
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>main</Name>
+				<Source><![CDATA[
+    public static void main(Args _args)
+    {
+        if(SysDataverseUtility::IsDataverseLinked())
+        {
+            IOrganizationService service;
+        
+            service = SysDataverseUtility::GetOrganizationServiceForCurrentUser(classStr(TMSSustainabilityServiceHealthChecker));
+        
+            QueryExpression x =  new QueryExpression("Environment Variable Values");
+
+            FilterExpression crit = new FilterExpression();
+
+            crit.AddCondition('Schema Name', ConditionOperator::Equal, 'CatalogSubscription');
+
+
+
+            //x.Criteria.AddCondition('Schema Name', ConditionOperator::Equal, 'CatalogSubscription');
+
+            var envVar = service.RetrieveMultiple(x);
+
+            var entities = envVar.Entities;
+
+            if(entities.Count > 0)
+            {
+                List collection = new List(Types::Record);
+
+                ListEnumerator li = collection.getEnumerator();
+
+                li.moveNext();
+
+                while(li.current())
+                {
+                    Entity entity = li.current();
+                    //info(entity.GetAttributeValue('asdf'));
+
+
+                    li.moveNext();
+                }
+
+            }
+        }
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

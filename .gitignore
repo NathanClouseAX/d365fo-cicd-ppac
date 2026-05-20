@@ -1,0 +1,36 @@
+################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+# X++ build outputs
+/src/xpp/models/Sample/bin
+/src/xpp/models/AAXBusinessEvents/bin
+/src/xpp/models/AAXJSONGenerator/bin
+/src/xpp/models/AAXParameterWorkflow/bin
+/src/xpp/models/AAXWarehouseDimensionLink/bin
+/src/xpp/models/*/XppMetadata
+/src/xpp/models/*/BuildModelResult.*
+/src/xpp/models/*/BuildProjectResult.*
+
+# X++ reference source (decompiled)
+/src/xpp/models/XppSource
+
+# Visual Studio user files
+/.vs
+
+/Projects/AAXJSONGenerator/AAXJSONGenerator/obj/Debug
+/src/xpp/models/**/.vs
+/src/xpp/projects/**/.vs
+/src/csharp/**/.vs
+
+# Build intermediates
+/src/xpp/projects/**/obj
+/src/xpp/models/**/obj
+/src/csharp/**/bin
+/src/csharp/**/obj
+
+# Logs
+*.log
+
+# Claude Code
+/.claude

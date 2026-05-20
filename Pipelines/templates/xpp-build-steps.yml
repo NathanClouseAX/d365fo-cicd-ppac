@@ -1,0 +1,102 @@
+# templates/xpp-build-steps.yml
+# Shared steps: authenticate, install NuGets, update model version, build, collect logs.
+# Called by both the Debug and Release jobs in the main pipeline.
+
+parameters:
+  - name: configuration        # 'Debug' or 'Release'
+    type: string
+    default: 'Debug'
+
+  - name: nugetsWorkingPath
+    type: string
+    default: '$(Pipeline.Workspace)\nuGetsWorking'
+
+  - name: metadataPath
+    type: string
+    default: '$(Build.SourcesDirectory)\Metadata'
+
+  - name: xppModelSolution
+    type: string
+    default: 'Projects\Build\Build.sln'
+
+  - name: nugetConfigsPath
+    type: string
+    default: '$(Build.SourcesDirectory)\Configs'
+
+  - name: toolsPackage
+    type: string
+    default: 'Microsoft.Dynamics.AX.Platform.CompilerPackage'
+
+  - name: platPackage
+    type: string
+    default: 'Microsoft.Dynamics.AX.Platform.DevALM.BuildXpp'
+
+  - name: app1Package
+    type: string
+    default: 'Microsoft.Dynamics.AX.Application1.DevALM.BuildXpp'
+
+  - name: app2Package
+    type: string
+    default: 'Microsoft.Dynamics.AX.Application2.DevALM.BuildXpp'
+
+  - name: appSuitePackage
+    type: string
+    default: 'Microsoft.Dynamics.AX.ApplicationSuite.DevALM.BuildXpp'
+
+steps:
+  # -------------------------------------------------------------------------
+  # Authenticate & install NuGets
+  # -------------------------------------------------------------------------
+  - task: NuGetAuthenticate@1
+    displayName: 'Authenticate to Azure Artifacts'
+
+  - task: NuGetCommand@2
+    displayName: 'Install X++ DevALM NuGet packages (${{ parameters.configuration }})'
+    inputs:
+      command: 'custom'
+      arguments: >-
+        install -NonInteractive
+        "${{ parameters.nugetConfigsPath }}\packages.config"
+        -ConfigFile "${{ parameters.nugetConfigsPath }}\nuget.config"
+        -Verbosity Detailed
+        -ExcludeVersion
+        -OutputDirectory "${{ parameters.nugetsWorkingPath }}"
+
+  # -------------------------------------------------------------------------
+  # Update model version
+  # -------------------------------------------------------------------------
+  - task: XppUpdateModelVersion@0
+    displayName: 'Update X++ Model Version (${{ parameters.configuration }})'
+    inputs:
+      MetadataDirectory: '${{ parameters.metadataPath }}'
+      VersionNumber: '$(Build.BuildNumber)'
+
+  # -------------------------------------------------------------------------
+  # Build
+  # -------------------------------------------------------------------------
+  - task: VSBuild@1
+    displayName: 'Build X++ solution (${{ parameters.configuration }})'
+    inputs:
+      solution: '${{ parameters.xppModelSolution }}'
+      vsVersion: '17.0'
+      configuration: '${{ parameters.configuration }}'
+      msbuildArgs: >-
+        /p:BuildTasksDirectory="${{ parameters.nugetsWorkingPath }}\${{ parameters.toolsPackage }}\DevAlm"
+        /p:MetadataDirectory="${{ parameters.metadataPath }}"
+        /p:FrameworkDirectory="${{ parameters.nugetsWorkingPath }}\${{ parameters.toolsPackage }}"
+        /p:ReferenceFolder="${{ parameters.nugetsWorkingPath }}\${{ parameters.platPackage }}\ref\net40;${{ parameters.nugetsWorkingPath }}\${{ parameters.app1Package }}\ref\net40;${{ parameters.nugetsWorkingPath }}\${{ parameters.app2Package }}\ref\net40;${{ parameters.nugetsWorkingPath }}\${{ parameters.appSuitePackage }}\ref\net40;${{ parameters.metadataPath }};$(Build.BinariesDirectory)"
+        /p:ReferencePath="${{ parameters.nugetsWorkingPath }}\${{ parameters.toolsPackage }}"
+        /p:OutputDirectory="$(Build.BinariesDirectory)"
+
+  # -------------------------------------------------------------------------
+  # Collect compile logs
+  # -------------------------------------------------------------------------
+  - task: CopyFiles@2
+    displayName: 'Collect X++ compile logs (${{ parameters.configuration }})'
+    inputs:
+      SourceFolder: '$(Build.SourcesDirectory)'
+      Contents: |
+        **\Dynamics.AX.*.xppc.*
+        **\Dynamics.AX.*.labelc.*
+        **\Dynamics.AX.*.reportsc.*
+      TargetFolder: '$(Build.ArtifactStagingDirectory)\Logs\${{ parameters.configuration }}'

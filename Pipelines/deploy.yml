@@ -1,0 +1,59 @@
+# deploy.yml
+# Deploys the X++ package to UAT and DM for validation.
+# Triggered only by builds from release/* branches (one release per sprint).
+# Main builds produce artifacts but do not deploy — UAT is reserved for release candidates.
+# Only artifacts that pass both UAT and DM can be promoted to GOLD/PROD via release.yml.
+
+name: deploy-$(Date:yy.MM.dd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+    - pipeline: build
+      source: 'Build X++'          # Must match the ADO pipeline definition name for build.yml
+      trigger:
+        branches:
+          include:
+            - release/*
+
+variables:
+  - group: Teams-Secrets
+  - group: PowerPlatform-Auth
+
+  - name: ArtifactName
+    value: 'drop'
+  - name: PackageFile
+    value: '$(Pipeline.Workspace)/build/$(ArtifactName)/CloudDeployablePackage/TemplatePackage.dll'
+
+stages:
+# =====================================================================
+# Stage 1: Deploy UAT
+# =====================================================================
+- stage: DeployUAT
+  displayName: 'Deploy to UAT'
+  jobs:
+    - template: templates/deploy-finops-package.yml
+      parameters:
+        stageLabel:            'UAT'
+        environmentName:       'Nclouse-uat'
+        serviceConnectionName: 'Nclouse-UAT'
+        environmentUrl:        'https://nclouse-uat.crm.dynamics.com'
+        packageFile:           '$(PackageFile)'
+
+# =====================================================================
+# Stage 2: Deploy DM
+# =====================================================================
+- stage: DeployDM
+  displayName: 'Deploy to DM'
+  dependsOn: DeployUAT
+  condition: succeeded('DeployUAT')
+  jobs:
+    - template: templates/deploy-finops-package.yml
+      parameters:
+        stageLabel:            'DM'
+        environmentName:       'Nclouse-DM'
+        serviceConnectionName: 'Nclouse-DM'
+        environmentUrl:        'https://nclouse-dm.crm.dynamics.com'
+        packageFile:           '$(PackageFile)'

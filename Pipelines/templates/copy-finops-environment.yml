@@ -1,0 +1,129 @@
+# templates/copy-finops-environment.yml
+# Copies a Power Platform environment from source to target.
+# Uses Copy-PowerAppEnvironment from Microsoft.PowerApps.Administration.PowerShell.
+
+parameters:
+  - name: tenantId
+    type: string
+    default: '$(PP_TENANT_ID)'
+
+  - name: applicationId
+    type: string
+    default: '$(PP_APPLICATION_ID)'
+
+  - name: clientSecret
+    type: string
+    default: '$(PP_CLIENT_SECRET)'
+
+  # Power Platform endpoint (prod, gcc, usgov, usgovhigh, dod, china)
+  - name: endpoint
+    type: string
+    default: 'prod'
+
+  # Required: target environment GUID
+  - name: targetEnvironmentId
+    type: string
+    default: ''
+
+  # Required: source environment GUID
+  - name: sourceEnvironmentId
+    type: string
+    default: ''
+
+  # Optional: display name for the target after copy
+  - name: targetEnvironmentDisplayName
+    type: string
+    default: ''
+
+  - name: targetSecurityGroupId
+    type: string
+    default: ''
+
+  - name: copyType
+    type: string
+    default: 'FullCopy'
+
+  - name: skipAuditData
+    type: boolean
+    default: true
+
+  - name: waitUntilFinished
+    type: boolean
+    default: false
+
+  - name: timeoutInMinutes
+    type: number
+    default: 60
+
+  - name: apiVersion
+    type: string
+    default: '2021-04-01'
+
+  - name: moduleName
+    type: string
+    default: 'Microsoft.PowerApps.Administration.PowerShell'
+
+steps:
+  - task: PowerShell@2
+    displayName: 'Copy Power Platform Environment (source → target)'
+    inputs:
+      targetType: 'inline'
+      pwsh: true
+      script: |
+        $ErrorActionPreference = "Stop"
+
+        $tenantId      = '${{ parameters.tenantId }}'
+        $applicationId = '${{ parameters.applicationId }}'
+        $clientSecret  = '${{ parameters.clientSecret }}'
+        $endpoint      = '${{ parameters.endpoint }}'
+
+        $targetEnvId   = '${{ parameters.targetEnvironmentId }}'
+        $sourceEnvId   = '${{ parameters.sourceEnvironmentId }}'
+
+        $targetName    = '${{ parameters.targetEnvironmentDisplayName }}'
+        $targetSgId    = '${{ parameters.targetSecurityGroupId }}'
+        $copyType      = '${{ parameters.copyType }}'
+        $skipAudit     = [System.Convert]::ToBoolean('${{ parameters.skipAuditData }}')
+
+        $wait          = [System.Convert]::ToBoolean('${{ parameters.waitUntilFinished }}')
+        $timeoutMins   = [int]'${{ parameters.timeoutInMinutes }}'
+        $apiVersion    = '${{ parameters.apiVersion }}'
+        $moduleName    = '${{ parameters.moduleName }}'
+
+        if ([string]::IsNullOrWhiteSpace($clientSecret)) { throw "PP_CLIENT_SECRET is empty. Check variable group + permissions." }
+        if ([string]::IsNullOrWhiteSpace($targetEnvId))  { throw "targetEnvironmentId is required (destination environment GUID)." }
+        if ([string]::IsNullOrWhiteSpace($sourceEnvId))  { throw "sourceEnvironmentId is required (source environment GUID)." }
+
+        Write-Host "Installing module: $moduleName"
+        Install-Module -Name $moduleName -Force -Scope CurrentUser -AllowClobber
+
+        Write-Host "Authenticating to endpoint '$endpoint' with app registration..."
+        Add-PowerAppsAccount `
+          -Endpoint $endpoint `
+          -TenantID $tenantId `
+          -ApplicationId $applicationId `
+          -ClientSecret $clientSecret
+
+        $copyToRequest = [pscustomobject]@{
+          SourceEnvironmentId    = $sourceEnvId
+          TargetEnvironmentName  = $(if ([string]::IsNullOrWhiteSpace($targetName)) { "Copied from $sourceEnvId" } else { $targetName })
+          CopyType               = $copyType
+          SkipAuditData          = $skipAudit
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($targetSgId)) {
+          $copyToRequest | Add-Member -NotePropertyName TargetSecurityGroupId -NotePropertyValue $targetSgId
+        }
+
+        Write-Host "Starting copy: Source=$sourceEnvId -> TargetEnvId=$targetEnvId"
+        Write-Host "CopyType=$copyType, SkipAuditData=$skipAudit, WaitUntilFinished=$wait, TimeoutInMinutes=$timeoutMins, ApiVersion=$apiVersion"
+
+        $result = Copy-PowerAppEnvironment `
+          -EnvironmentName $targetEnvId `
+          -CopyToRequestDefinition $copyToRequest `
+          -WaitUntilFinished $wait `
+          -TimeoutInMinutes $timeoutMins `
+          -ApiVersion $apiVersion
+
+        Write-Host "Copy initiated."
+        $result | Format-List * -Force

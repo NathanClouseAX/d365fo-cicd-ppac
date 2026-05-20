@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <BuildTasksDirectory Condition=" '$(BuildTasksDirectory)' == ''">$(MSBuildProgramFiles32)\MSBuild\Microsoft\Dynamics\AX</BuildTasksDirectory>
+    <Model>AAXBusinessEvents</Model>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <OutputPath>bin</OutputPath>
+    <SchemaVersion>2.0</SchemaVersion>
+    <GenerateCrossReferences>True</GenerateCrossReferences>
+    <RunAppCheckerRules>False</RunAppCheckerRules>
+    <LogAppcheckerDiagsAsErrors>False</LogAppcheckerDiagsAsErrors>
+    <ProjectGuid>{6be30290-0760-4cca-ab90-6be896bdb0ac}</ProjectGuid>
+    <Name>VendorBusinessEvent</Name>
+    <RootNamespace>VendorBusinessEvent</RootNamespace>
+    <StartupType>Class</StartupType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <Configuration>Debug</Configuration>
+    <DBSyncInBuild>False</DBSyncInBuild>
+    <GenerateFormAdaptors>False</GenerateFormAdaptors>
+    <Company>
+    </Company>
+    <Partition>initial</Partition>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DataEntityExpandParentChildRelations>False</DataEntityExpandParentChildRelations>
+    <DataEntityUseLabelTextAsFieldName>False</DataEntityUseLabelTextAsFieldName>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="Classes\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AxClass\AAXVendorCreatedBusinessEvent">
+      <SubType>Content</SubType>
+      <Name>AAXVendorCreatedBusinessEvent</Name>
+      <Link>Classes\AAXVendorCreatedBusinessEvent</Link>
+    </Content>
+    <Content Include="AxClass\AAXVendorCreatedBusinessEventContract">
+      <SubType>Content</SubType>
+      <Name>AAXVendorCreatedBusinessEventContract</Name>
+      <Link>Classes\AAXVendorCreatedBusinessEventContract</Link>
+    </Content>
+    <Content Include="AxClass\AAXVendorUpdatedBusinessEvent">
+      <SubType>Content</SubType>
+      <Name>AAXVendorUpdatedBusinessEvent</Name>
+      <Link>Classes\AAXVendorUpdatedBusinessEvent</Link>
+    </Content>
+    <Content Include="AxClass\AAXVendorUpdatedBusinessEventContract">
+      <SubType>Content</SubType>
+      <Name>AAXVendorUpdatedBusinessEventContract</Name>
+      <Link>Classes\AAXVendorUpdatedBusinessEventContract</Link>
+    </Content>
+    <Content Include="AxClass\AAXVendTable_Table_Extension">
+      <SubType>Content</SubType>
+      <Name>AAXVendTable_Table_Extension</Name>
+      <Link>Classes\AAXVendTable_Table_Extension</Link>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.Common.targets" />
+  <Import Project="$(BuildTasksDirectory)\Microsoft.Dynamics.Framework.Tools.BuildTasks.17.0.targets" />
+</Project>

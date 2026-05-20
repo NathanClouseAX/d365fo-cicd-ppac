@@ -1,0 +1,72 @@
+# release.yml
+# Promotes a validated package through GOLD → PROD for go-live.
+# Chained off deploy.yml — only artifacts that successfully passed UAT and DM
+# can reach production environments. This is the enforcement mechanism.
+#
+# Workflow:
+#   1. Development merges to main, validated via deploy.yml (UAT + DM)
+#   2. When ready for a go-live wave, cut release/wave-N from main
+#   3. build.yml produces an artifact → deploy.yml validates in UAT + DM
+#   4. On successful DM deploy, this pipeline triggers → GOLD → PROD
+#   5. Hotfixes: branch off release/wave-N, fix, merge to release AND main
+
+name: release-$(Date:yy.MM.dd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+    - pipeline: deploy
+      source: 'Deploy'             # Must match the ADO pipeline definition name for deploy.yml
+      trigger:
+        stages:
+          - DeployDM               # Only triggers after DM stage succeeds
+        branches:
+          include:
+            - release/*
+    - pipeline: build
+      source: 'Build X++'         # Direct reference to get the artifact (Deploy doesn't republish)
+
+variables:
+  - group: Teams-Secrets
+  - group: PowerPlatform-Auth
+
+  - name: ArtifactName
+    value: 'drop'
+  - name: PackageFile
+    value: '$(Pipeline.Workspace)/build/$(ArtifactName)/CloudDeployablePackage/TemplatePackage.dll'
+
+stages:
+# =====================================================================
+# Stage 1: Deploy GOLD
+#   Pre-production validation with production-like data.
+#   Only reachable by artifacts that passed UAT + DM.
+# =====================================================================
+- stage: DeployGOLD
+  displayName: 'Deploy to GOLD'
+  jobs:
+    - template: templates/deploy-finops-package.yml
+      parameters:
+        stageLabel:            'GOLD'
+        environmentName:       'Nclouse-GOLD'
+        serviceConnectionName: 'Nclouse-GOLD'
+        environmentUrl:        'https://nclouse-gold.crm.dynamics.com'
+        packageFile:           '$(PackageFile)'
+
+# =====================================================================
+# Stage 2: Deploy PROD
+#   Production deployment — requires release manager approval.
+# =====================================================================
+- stage: DeployPROD
+  displayName: 'Deploy to PROD'
+  dependsOn: DeployGOLD
+  condition: succeeded('DeployGOLD')
+  jobs:
+    - template: templates/deploy-finops-package.yml
+      parameters:
+        stageLabel:            'PROD'
+        environmentName:       'Nclouse-Prod'
+        serviceConnectionName: 'Nclouse-Prod'
+        environmentUrl:        'https://nclouse-prod.crm.dynamics.com'
+        packageFile:           '$(PackageFile)'

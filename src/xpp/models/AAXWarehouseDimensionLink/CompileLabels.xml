@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Diagnostics
+  GenerationTime="2026-03-19T17:46:06.1838359-04:00">
+  <Items>
+    <Diagnostic>
+      <DiagnosticType>VisualStudioIntegration</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>C:\Users\natha\AppData\Local\Microsoft\Dynamics365\10.0.2428.63\PackagesLocalDirectory\Bin\labelc.exe</Path>
+      <Moniker>C:\Users\natha\AppData\Local\Microsoft\Dynamics365\10.0.2428.63\PackagesLocalDirectory\Bin\labelc.exe -metadata="C:\Users\natha\source\repos\MVP\MVP-FO\Metadata" -output="C:\Users\natha\AppData\Local\Microsoft\Dynamics365\RuntimeSymLinks\orge3971f061\ZZZZ__Metadata\AAXWarehouseDimensionLink\Resources" -modelmodule="AAXWarehouseDimensionLink" </Moniker>
+      <Message>C:\Users\natha\AppData\Local\Microsoft\Dynamics365\10.0.2428.63\PackagesLocalDirectory\Bin\labelc.exe -metadata="C:\Users\natha\source\repos\MVP\MVP-FO\Metadata" -output="C:\Users\natha\AppData\Local\Microsoft\Dynamics365\RuntimeSymLinks\orge3971f061\ZZZZ__Metadata\AAXWarehouseDimensionLink\Resources" -modelmodule="AAXWarehouseDimensionLink" </Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Starting label compilation...</Moniker>
+      <Message>Starting label compilation...</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>- Module name    </Moniker>
+      <Message>AAXWarehouseDimensionLink</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>- Metadata path  </Moniker>
+      <Message>C:\Users\natha\source\repos\MVP\MVP-FO\Metadata\</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>- Output path    </Moniker>
+      <Message>C:\Users\natha\AppData\Local\Microsoft\Dynamics365\RuntimeSymLinks\orge3971f061\ZZZZ__Metadata\AAXWarehouseDimensionLink\Resources\</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>- Maximum DoP    </Moniker>
+      <Message>0 (Logical Processors: 16)</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Generating Primary resource assembly for AAX_InventLocationDimLink</Moniker>
+      <Message>Generating Primary resource assembly for AAX_InventLocationDimLink</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Generating satellite resource assembly for label file AAX_InventLocationDimLink, language en-US</Moniker>
+      <Message>Generating satellite resource assembly for label file AAX_InventLocationDimLink, language en-US</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Done compiling 1 label files!</Moniker>
+      <Message>Done compiling 1 label files!</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Model store query time 00:00:00.2011281.</Moniker>
+      <Message>Model store query time 00:00:00.2011281.</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Label compilation time 00:00:00.0923449.</Moniker>
+      <Message>Label compilation time 00:00:00.0923449.</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Completed label compilation in 0 seconds with exit code 0.</Moniker>
+      <Message>Completed label compilation in 0 seconds with exit code 0.</Message>
+    </Diagnostic>
+  </Items>
+  <Aliases />
+</Diagnostics>

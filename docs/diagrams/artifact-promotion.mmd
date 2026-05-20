@@ -1,0 +1,32 @@
+---
+title: Immutable Artifact Promotion
+---
+flowchart LR
+    subgraph "Created Once"
+        BUILD[build.yml<br/>Compile X++ + Package]
+        ART[("Artifact: drop<br/>TemplatePackage.dll<br/>Build #26.05.16.1")]
+    end
+
+    subgraph "Promoted Through"
+        UAT[UAT<br/>Validation]
+        DM[DM<br/>Integration]
+        GOLD[GOLD<br/>Pre-prod]
+        PROD[PROD<br/>Production]
+    end
+
+    BUILD --> ART
+    ART -->|same binary| UAT
+    ART -->|same binary| DM
+    ART -->|same binary| GOLD
+    ART -->|same binary| PROD
+
+    UAT -.->|must pass| DM
+    DM -.->|must pass| GOLD
+    GOLD -.->|must pass| PROD
+
+    style ART fill:#e8f5e9,stroke:#4caf50,stroke-width:3px
+    style BUILD fill:#e3f2fd,stroke:#2196f3
+    style UAT fill:#fff3e0,stroke:#ff9800
+    style DM fill:#fff3e0,stroke:#ff9800
+    style GOLD fill:#fce4ec,stroke:#f44336
+    style PROD fill:#fce4ec,stroke:#f44336

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXParameterCompare_SystemParameters</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// compare system parameter version to current system parameters and store differences in a temp table
+/// </summary>
+public class AAXParameterCompare_SystemParameters extends AAXParameterCompare
+{
+
+    AAXSystemParametersVersion AAXSystemParametersVersion;
+
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>GetData</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Builds a complete diff between the current live parameter values and a specific version.
+    /// Loads each standard parameter table alongside its versioned counterpart, then compares
+    /// them field-by-field. All differences across all parameter tables are accumulated into
+    /// a single temp table for display in the compare dialog.
+    /// </summary>
+    /// <returns>AAXtmpParameterCompare populated with all field-level differences</returns>
+    public AAXtmpParameterCompare GetData()
+    {
+        // Load current live parameter values from standard tables
+        SystemParameters systemParameters = SystemParameters::find();
+        FileUploadConfiguration fileUploadConfiguration = FileUploadConfiguration::find();
+        SysFileStoreParameters sysFileStoreParameters = SysFileStoreParameters::find();
+        BatchGlobal batchGlobal;
+
+        // BatchGlobal has no standard find(); use the same lookup as BatchRunSingleScheduler
+        select firstonly * from batchGlobal where batchGlobal.Name == 'SingleScheduler';
+
+        // Load the versioned values for this version
+        AAXSystemParametersValues AAXSystemParametersValues = AAXSystemParametersValues::find(this.parmVersionRecord().RecId);
+        AAXFileUploadConfigurationValues AAXFileUploadConfigurationValues = AAXFileUploadConfigurationValues::find(this.parmVersionRecord().RecId);
+        AAXSystemNotificationParametersValues AAXSystemNotificationParametersValues = AAXSystemNotificationParametersValues::find(this.parmVersionRecord().RecId);
+        AAXBatchGlobalValues AAXBatchGlobalValues = AAXBatchGlobalValues::find(this.parmVersionRecord().RecId);
+
+        // Compare each live/version pair and accumulate differences into the temp table
+        this.accumulateDifferences(systemParameters, AAXSystemParametersValues);
+        this.accumulateDifferences(fileUploadConfiguration, AAXFileUploadConfigurationValues);
+        this.accumulateDifferences(sysFileStoreParameters, AAXSystemNotificationParametersValues);
+        this.accumulateDifferences(batchGlobal, AAXBatchGlobalValues);
+
+        return AAXtmpParameterCompare;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>accumulateDifferences</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Iterates all non-system fields on the current (live) record, finds matching fields
+    /// on the version record by name, and inserts a row into the temp table for each
+    /// field where the values differ. Fields that exist on the live table but not on the
+    /// version table are skipped (version tables may be a subset of the live table).
+    /// </summary>
+    /// <param name = "_current">The live parameter record (e.g., SystemParameters)</param>
+    /// <param name = "_version">The versioned value record (e.g., AAXSystemParametersValues)</param>
+    public void accumulateDifferences(Common _current, Common _version)
+    {
+        SysDictTable dictTable = new SysDictTable(_current.TableId);
+        SysDictField currentField;
+        FieldId      fieldId;
+
+        for (fieldId = dictTable.fieldNext(0); fieldId; fieldId = dictTable.fieldNext(fieldId))
+        {
+            currentField = dictTable.fieldObject(fieldId);
+
+            if (currentField.isSystem())
+            {
+                continue;
+            }
+
+            // Match by field name across tables; null means the version table doesn't track this field
+            SysDictField versionField = SysDictField::findFieldByName(tableId2Name(_version.TableId), currentField.name());
+            if(versionField == null)
+            {
+                continue;
+            }
+
+            if(_current.(currentField.id()) != _version.(versionField.id()))
+            {
+                AAXtmpParameterCompare.initValue();
+                AAXtmpParameterCompare.TableName = dictTable.name();
+                AAXtmpParameterCompare.TableLabel = dictTable.label();
+                AAXtmpParameterCompare.CurrentValue = _current.(currentField.id());
+                AAXtmpParameterCompare.NewValue = _version.(versionField.id());
+                AAXtmpParameterCompare.FieldName = currentField.name();
+                AAXtmpParameterCompare.FieldLabel = currentField.label();
+                AAXtmpParameterCompare.insert();
+            }
+        }
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

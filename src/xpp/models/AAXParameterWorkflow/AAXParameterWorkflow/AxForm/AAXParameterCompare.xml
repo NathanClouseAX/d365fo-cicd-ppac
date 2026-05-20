@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxForm xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="Microsoft.Dynamics.AX.Metadata.V6">
+	<Name>AAXParameterCompare</Name>
+	<SourceCode>
+		<Methods xmlns="">
+			<Method>
+				<Name>classDeclaration</Name>
+				<Source><![CDATA[
+[Form]
+public class AAXParameterCompare extends FormRun
+{
+}
+]]></Source>
+			</Method>
+			<Method>
+				<Name>init</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Initializes the compare dialog by building a diff between the selected version
+    /// and the current live parameters, then binding the results to the temp table
+    /// data source for display in the grid.
+    /// </summary>
+    public void init()
+    {
+        super();
+
+        // Factory creates the correct comparison subclass based on the caller's record type
+        AAXParameterCompare AAXParameterCompare = AAXParameterCompare::constuct(element.args().record());
+
+        // Bind the populated temp table data to the form's data source
+        AAXtmpParameterCompare.setTmpData(AAXParameterCompare.GetData());
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+		<DataSources xmlns="" />
+		<DataControls xmlns="" />
+		<Members xmlns="" />
+	</SourceCode>
+	<DataSources>
+		<AxFormDataSource xmlns="">
+			<Name>AAXtmpParameterCompare</Name>
+			<Table>AAXtmpParameterCompare</Table>
+			<Fields>
+				<AxFormDataSourceField>
+					<DataField>CurrentValue</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>FieldLabel</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>FieldName</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>NewValue</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>Partition</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>RecId</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>TableId</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>TableLabel</DataField>
+				</AxFormDataSourceField>
+				<AxFormDataSourceField>
+					<DataField>TableName</DataField>
+				</AxFormDataSourceField>
+			</Fields>
+			<ReferencedDataSources />
+			<AllowCreate>No</AllowCreate>
+			<AllowDelete>No</AllowDelete>
+			<AllowEdit>No</AllowEdit>
+			<DataSourceLinks />
+			<DerivedDataSources />
+		</AxFormDataSource>
+	</DataSources>
+	<Design>
+		<AllowUserSetup xmlns="">No</AllowUserSetup>
+		<Caption xmlns="">Compare</Caption>
+		<DialogSize xmlns="">Large</DialogSize>
+		<Pattern xmlns="">DialogReadOnly</Pattern>
+		<PatternVersion xmlns="">1.2</PatternVersion>
+		<ShowDeleteButton xmlns="">No</ShowDeleteButton>
+		<ShowNewButton xmlns="">No</ShowNewButton>
+		<Style xmlns="">Dialog</Style>
+		<ViewEditMode xmlns="">View</ViewEditMode>
+		<Controls xmlns="">
+			<AxFormControl xmlns=""
+				i:type="AxFormGroupControl">
+				<Name>FormGroupControl1</Name>
+				<HeightMode>SizeToAvailable</HeightMode>
+				<Pattern>Custom</Pattern>
+				<Type>Group</Type>
+				<WidthMode>SizeToAvailable</WidthMode>
+				<FormControlExtension
+					i:nil="true" />
+				<Controls>
+					<AxFormControl xmlns=""
+						i:type="AxFormGroupControl">
+						<Name>FormGroupControl2</Name>
+						<Type>Group</Type>
+						<FormControlExtension
+							i:nil="true" />
+						<Controls>
+							<AxFormControl xmlns=""
+								i:type="AxFormGroupControl">
+								<Name>FormGroupControl3</Name>
+								<Type>Group</Type>
+								<FormControlExtension
+									i:nil="true" />
+								<Controls>
+									<AxFormControl xmlns=""
+										i:type="AxFormListBoxControl">
+										<Name>FormListBoxControl1</Name>
+										<Type>ListBox</Type>
+										<FormControlExtension
+											i:nil="true" />
+										<Items />
+									</AxFormControl>
+									<AxFormControl xmlns=""
+										i:type="AxFormGridControl">
+										<Name>FormGridControl1</Name>
+										<Type>Grid</Type>
+										<FormControlExtension
+											i:nil="true" />
+										<Controls>
+											<AxFormControl xmlns=""
+												i:type="AxFormStringControl">
+												<Name>AAXtmpParameterCompare_TableName</Name>
+												<Type>String</Type>
+												<Visible>No</Visible>
+												<FormControlExtension
+													i:nil="true" />
+												<DataField>TableName</DataField>
+												<DataSource>AAXtmpParameterCompare</DataSource>
+											</AxFormControl>
+											<AxFormControl xmlns=""
+												i:type="AxFormStringControl">
+												<Name>AAXtmpParameterCompare_TableLabel</Name>
+												<Type>String</Type>
+												<FormControlExtension
+													i:nil="true" />
+												<DataField>TableLabel</DataField>
+												<DataSource>AAXtmpParameterCompare</DataSource>
+											</AxFormControl>
+											<AxFormControl xmlns=""
+												i:type="AxFormStringControl">
+												<Name>AAXtmpParameterCompare_FieldName</Name>
+												<Type>String</Type>
+												<Visible>No</Visible>
+												<FormControlExtension
+													i:nil="true" />
+												<DataField>FieldName</DataField>
+												<DataSource>AAXtmpParameterCompare</DataSource>
+											</AxFormControl>
+											<AxFormControl xmlns=""
+												i:type="AxFormStringControl">
+												<Name>AAXtmpParameterCompare_FieldLabel</Name>
+												<Type>String</Type>
+												<FormControlExtension
+													i:nil="true" />
+												<DataField>FieldLabel</DataField>
+												<DataSource>AAXtmpParameterCompare</DataSource>
+											</AxFormControl>
+											<AxFormControl xmlns=""
+												i:type="AxFormStringControl">
+												<Name>AAXtmpParameterCompare_CurrentValue</Name>
+												<Type>String</Type>
+												<FormControlExtension
+													i:nil="true" />
+												<DataField>CurrentValue</DataField>
+												<DataSource>AAXtmpParameterCompare</DataSource>
+											</AxFormControl>
+											<AxFormControl xmlns=""
+												i:type="AxFormStringControl">
+												<Name>AAXtmpParameterCompare_NewValue</Name>
+												<Type>String</Type>
+												<FormControlExtension
+													i:nil="true" />
+												<DataField>NewValue</DataField>
+												<DataSource>AAXtmpParameterCompare</DataSource>
+											</AxFormControl>
+										</Controls>
+									</AxFormControl>
+								</Controls>
+							</AxFormControl>
+						</Controls>
+					</AxFormControl>
+				</Controls>
+				<Style>DialogContent</Style>
+			</AxFormControl>
+			<AxFormControl xmlns=""
+				i:type="AxFormButtonGroupControl">
+				<Name>FormButtonGroupControl1</Name>
+				<Type>ButtonGroup</Type>
+				<WidthMode>SizeToAvailable</WidthMode>
+				<FormControlExtension
+					i:nil="true" />
+				<Controls>
+					<AxFormControl xmlns=""
+						i:type="AxFormCommandButtonControl">
+						<Name>FormCommandButtonControl1</Name>
+						<Type>CommandButton</Type>
+						<FormControlExtension
+							i:nil="true" />
+						<Command>Cancel</Command>
+						<SaveRecord>No</SaveRecord>
+						<Text>@SYS15212</Text>
+					</AxFormControl>
+				</Controls>
+				<ArrangeMethod>HorizontalRight</ArrangeMethod>
+				<Style>DialogCommitContainer</Style>
+			</AxFormControl>
+		</Controls>
+	</Design>
+	<Parts />
+</AxForm>

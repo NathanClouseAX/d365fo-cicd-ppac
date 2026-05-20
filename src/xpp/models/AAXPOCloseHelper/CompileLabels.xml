@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Diagnostics
+  GenerationTime="2026-03-19T21:06:05.1770634-04:00">
+  <Items>
+    <Diagnostic>
+      <DiagnosticType>VisualStudioIntegration</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>C:\Users\natha\AppData\Local\Microsoft\Dynamics365\10.0.2428.63\PackagesLocalDirectory\Bin\labelc.exe</Path>
+      <Moniker>C:\Users\natha\AppData\Local\Microsoft\Dynamics365\10.0.2428.63\PackagesLocalDirectory\Bin\labelc.exe -metadata="C:\Users\natha\source\repos\MVP\MVP-FO\Metadata" -output="C:\Users\natha\AppData\Local\Microsoft\Dynamics365\RuntimeSymLinks\orge3971f061\ZZZZ__Metadata\AAXPOCloseHelper\Resources" -modelmodule="AAXPOCloseHelper" </Moniker>
+      <Message>C:\Users\natha\AppData\Local\Microsoft\Dynamics365\10.0.2428.63\PackagesLocalDirectory\Bin\labelc.exe -metadata="C:\Users\natha\source\repos\MVP\MVP-FO\Metadata" -output="C:\Users\natha\AppData\Local\Microsoft\Dynamics365\RuntimeSymLinks\orge3971f061\ZZZZ__Metadata\AAXPOCloseHelper\Resources" -modelmodule="AAXPOCloseHelper" </Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Starting label compilation...</Moniker>
+      <Message>Starting label compilation...</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>- Module name    </Moniker>
+      <Message>AAXPOCloseHelper</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>- Metadata path  </Moniker>
+      <Message>C:\Users\natha\source\repos\MVP\MVP-FO\Metadata\</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>- Output path    </Moniker>
+      <Message>C:\Users\natha\AppData\Local\Microsoft\Dynamics365\RuntimeSymLinks\orge3971f061\ZZZZ__Metadata\AAXPOCloseHelper\Resources\</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>- Maximum DoP    </Moniker>
+      <Message>0 (Logical Processors: 16)</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Generating Primary resource assembly for AAXPOCloseHelper</Moniker>
+      <Message>Generating Primary resource assembly for AAXPOCloseHelper</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Generating satellite resource assembly for label file AAXPOCloseHelper, language en-US</Moniker>
+      <Message>Generating satellite resource assembly for label file AAXPOCloseHelper, language en-US</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Done compiling 1 label files!</Moniker>
+      <Message>Done compiling 1 label files!</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Model store query time 00:00:00.1936918.</Moniker>
+      <Message>Model store query time 00:00:00.1936918.</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Label compilation time 00:00:00.0874579.</Moniker>
+      <Message>Label compilation time 00:00:00.0874579.</Message>
+    </Diagnostic>
+    <Diagnostic>
+      <DiagnosticType>Unspecified</DiagnosticType>
+      <Severity>Informational</Severity>
+      <Path>labelc.exe</Path>
+      <Moniker>Completed label compilation in 0 seconds with exit code 0.</Moniker>
+      <Message>Completed label compilation in 0 seconds with exit code 0.</Message>
+    </Diagnostic>
+  </Items>
+  <Aliases />
+</Diagnostics>

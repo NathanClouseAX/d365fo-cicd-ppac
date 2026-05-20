@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxTable xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXDataFeedsParametersValues</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+public class AAXDataFeedsParametersValues extends common
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>find</Name>
+				<Source><![CDATA[
+     public static AAXDataFeedsParametersValues find(RecId _AAXSystemParametersVersionRecId, boolean _forUpdate = false)
+    {
+        AAXDataFeedsParametersValues parameters;
+
+        parameters.selectForUpdate(_forUpdate);
+
+        select firstonly parameters
+            where parameters.AAXSystemParametersVersion == _AAXSystemParametersVersionRecId;
+
+        if (!parameters)
+        {
+            Company::createParameter(parameters);
+        }
+
+        return parameters;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>createDefault</Name>
+				<Source><![CDATA[
+    public static void createDefault(RecId _AAXSystemParametersVersionRecId)
+    {                      
+        AAXDataFeedsParametersValues AAXDataFeedsParametersValues;
+        DataFeedsParameters DataFeedsParameters;
+
+        if(!AAXSystemParametersValues::exists(_AAXSystemParametersVersionRecId))
+        {
+            DataFeedsParameters = DataFeedsParameters::find();
+
+            AAXDataFeedsParametersValues.AAXSystemParametersVersion = _AAXSystemParametersVersionRecId;
+            AAXDataFeedsParametersValues.BundleSize = DataFeedsParameters.BundleSize;
+            AAXDataFeedsParametersValues.Enabled = DataFeedsParameters.Enabled;
+            AAXDataFeedsParametersValues.ThreadCount = DataFeedsParameters.ThreadCount;
+            AAXDataFeedsParametersValues.insert();
+
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>exists</Name>
+				<Source><![CDATA[
+    /// <summary>
+    ///
+    /// </summary>
+    public static boolean exists(RecId _AAXSystemParametersVersionRecId)
+    {                  
+        return AAXDataFeedsParametersValues::find(_AAXSystemParametersVersionRecId).RecId != 0;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+	<SubscriberAccessLevel>
+		<Read>Allow</Read>
+	</SubscriberAccessLevel>
+	<Modules>SystemAdministration</Modules>
+	<DeleteActions />
+	<FieldGroups>
+		<AxTableFieldGroup>
+			<Name>AutoReport</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoLookup</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoIdentification</Name>
+			<AutoPopulate>Yes</AutoPopulate>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoSummary</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoBrowse</Name>
+			<Fields />
+		</AxTableFieldGroup>
+	</FieldGroups>
+	<Fields>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>Enabled</Name>
+			<ExtendedDataType>DataFeedsEnabled</ExtendedDataType>
+			<Label>@DataFeeds:DataFeedsEnabled</Label>
+			<EnumType>NoYes</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>ThreadCount</Name>
+			<ExtendedDataType>BusinessEventsProcessorThreadCount</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>BundleSize</Name>
+			<ExtendedDataType>BusinessEventsBundleSize</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt64">
+			<Name>AAXSystemParametersVersion</Name>
+		</AxTableField>
+	</Fields>
+	<FullTextIndexes />
+	<Indexes>
+		<AxTableIndex>
+			<Name>AAXSystemParametersVersionIdx</Name>
+			<AllowDuplicates>Yes</AllowDuplicates>
+			<Fields>
+				<AxTableIndexField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableIndexField>
+			</Fields>
+		</AxTableIndex>
+	</Indexes>
+	<Mappings />
+	<Relations>
+		<AxTableRelation>
+			<Name>AAXSystemParametersVersion</Name>
+			<Cardinality>ExactlyOne</Cardinality>
+			<OnDelete>Cascade</OnDelete>
+			<RelatedTable>AAXSystemParametersVersion</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>AAXSystemParametersVersion</Name>
+					<Field>AAXSystemParametersVersion</Field>
+					<RelatedField>RecId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+	</Relations>
+	<StateMachines />
+</AxTable>

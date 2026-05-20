@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXParameterPublish_SystemParameters</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// Publishes a versioned parameter snapshot into the live system parameter tables.
+/// Reads values from the four version value tables and writes them into SystemParameters,
+/// SystemNotificationParameters, and FileUploadConfiguration in a single transaction.
+/// </summary>
+internal final class AAXParameterPublish_SystemParameters
+{
+
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>run</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Writes all versioned parameter values back into the live parameter tables in a single
+    /// transaction. After this completes, the live SystemParameters, SystemNotificationParameters,
+    /// and FileUploadConfiguration tables reflect the values stored in the given version.
+    /// Also updates the SecurityConfigProvider user timeout setting.
+    /// </summary>
+    /// <param name = "_AAXSystemParametersVersion">The version to publish</param>
+    public void run(AAXSystemParametersVersion _AAXSystemParametersVersion)
+    {
+        BatchGlobal BatchGlobal;
+        BIMeasurementParameters BIMeasurementParameters;
+        DataFeedsParameters DataFeedsParameters;
+        EventSystemParameters EventSystemParameters;
+        SysFileStoreParameters SysFileStoreParameters;
+
+        SystemParameters SystemParameters;
+        SystemNotificationParameters SystemNotificationParameters;
+        FileUploadConfiguration FileUploadConfiguration;
+
+        AAXSystemNotificationParametersValues AAXSystemNotificationParametersValues;
+        AAXFileUploadConfigurationValues AAXFileUploadConfigurationValues;
+        AAXBatchGlobalValues AAXBatchGlobalValues;
+
+        unchecked(Uncheck::None)
+        {
+            // Lock the live parameter records for update
+            select forupdate * from SystemParameters;
+            select forupdate * from SystemNotificationParameters;
+            select forupdate * from FileUploadConfiguration;
+
+            // Load the versioned values for this version
+            AAXSystemParametersValues AAXSystemParametersValues = AAXSystemParametersValues::find(_AAXSystemParametersVersion.RecId, true);
+            AAXSystemParametersVersion AAXSystemParametersVersionNew = AAXSystemParametersVersion::find(_AAXSystemParametersVersion.RecId, true);
+            AAXSystemParametersVersion AAXSystemParametersVersionOld = AAXSystemParametersVersion::findActive(true);
+
+            AAXSystemNotificationParametersValues = AAXSystemNotificationParametersValues::find(_AAXSystemParametersVersion.RecId, true);
+            AAXFileUploadConfigurationValues = AAXFileUploadConfigurationValues::find(_AAXSystemParametersVersion.RecId, true);
+
+            ttsbegin;
+
+            // Copy versioned SystemParameters values to the live record
+            SystemParameters.data(AAXSystemParametersValues);
+            SystemParameters.initValue();
+            SystemParameters.SystemLanguageId = AAXSystemParametersValues.SystemLanguageId;
+            SystemParameters.SystemLineNumberIncrement = AAXSystemParametersValues.SystemLineNumberIncrement;
+            SystemParameters.PowerPortalAnonymousUserId = AAXSystemParametersValues.PowerPortalAnonymousUserId;
+            SystemParameters.SystemCurrencyCode = AAXSystemParametersValues.SystemCurrencyCode;
+            SystemParameters.SystemExchangeRateType = AAXSystemParametersValues.SystemExchangeRateType;
+            SystemParameters.UseLegacyQueryRelations = AAXSystemParametersValues.UseLegacyQueryRelations;
+            SystemParameters.ODataAllowNullForEnumKeyValue = AAXSystemParametersValues.ODataAllowNullForEnumKeyValue;
+            SystemParameters.ODataBuildMetadataCacheOnAosStartup = AAXSystemParametersValues.ODataBuildMetadataCacheOnAosStartup;
+            SystemParameters.UseAdvCertificateStore = AAXSystemParametersValues.UseAdvCertificateStore;
+            SystemParameters.Key = 0;
+
+            // Track which version is currently published so we can detect changes later
+            SystemParameters.AAXSystemParametersVersionRecId = _AAXSystemParametersVersion.RecId;
+
+            // Copy versioned notification parameter values
+            SystemNotificationParameters.ThresholdEvaluationPeriodDefault = AAXSystemNotificationParametersValues.ThresholdEvaluationPeriodDefault;
+            SystemNotificationParameters.ActiveNotificationThresholdDefault = AAXSystemNotificationParametersValues.ActiveNotificationThresholdDefault;
+
+            // Copy versioned file upload configuration values
+            FileUploadConfiguration.File_BlobLinkExpirationTimeSpanInMinutes = AAXFileUploadConfigurationValues.File_BlobLinkExpirationTimeSpanInMinutes;
+            FileUploadConfiguration.Image_BlobLinkExpirationTimeSpanInMinutes = AAXFileUploadConfigurationValues.Image_BlobLinkExpirationTimeSpanInMinutes;
+            FileUploadConfiguration.Video_BlobLinkExpirationTimeSpanInMinutes = AAXFileUploadConfigurationValues.Video_BlobLinkExpirationTimeSpanInMinutes;
+
+            // Apply the Microsoft Graph user timeout; default to 10s if not set
+            int userTimeoutInSeconds = AAXSystemParametersValues.userTimeoutInSeconds;
+            if(userTimeoutInSeconds <= 0)
+            {
+                userTimeoutInSeconds = 10;
+            }
+            SecurityConfigProvider::setListUsersWaitTimeInMilliseconds(userTimeoutInSeconds * 1000);
+
+            SystemParameters.update();
+            SystemNotificationParameters.update();
+            FileUploadConfiguration.update();
+
+            ttscommit;
+        }
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

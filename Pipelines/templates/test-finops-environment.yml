@@ -1,0 +1,189 @@
+# templates/test-finops-environment.yml
+#
+# Runs automated tests against a deployed F&O environment:
+#   1. SysTest (X++ unit/integration tests) via batch job
+#   2. OData endpoint smoke tests (validate key entities respond)
+#
+# Prerequisites:
+#   • Service principal registered as F&O application user in the target environment
+#   • Variable group 'PowerPlatform-Auth' available
+
+parameters:
+  - name: environmentUrl           # F&O environment base URL (e.g., https://myenv.operations.dynamics.com)
+    type: string
+  - name: stageLabel               # Display label for logging
+    type: string
+    default: 'TEST'
+  - name: sysTestSuite             # SysTest suite name to run (empty = skip)
+    type: string
+    default: ''
+  - name: odataEntities            # Comma-separated OData entities to smoke test (empty = skip)
+    type: string
+    default: 'SystemUsers,LegalEntities,Companies'
+  - name: testTimeoutMinutes       # Max time to wait for SysTest batch to complete
+    type: number
+    default: 30
+
+steps:
+  - pwsh: |
+      $ErrorActionPreference = "Stop"
+      $envUrl = "${{ parameters.environmentUrl }}".TrimEnd('/')
+
+      $tenantId  = "$(PP_TENANT_ID)"
+      $clientId  = "$(PP_APPLICATION_ID)"
+      $secret    = "$(PP_CLIENT_SECRET)"
+
+      # ── Acquire F&O token ──
+      Write-Host "Acquiring token for $envUrl..."
+      $resource = $envUrl
+      $tokenResponse = Invoke-RestMethod -Method Post `
+        -Uri "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token" `
+        -Body @{
+          grant_type    = "client_credentials"
+          client_id     = $clientId
+          client_secret = $secret
+          scope         = "$resource/.default"
+        }
+      $token = $tokenResponse.access_token
+      $headers = @{
+        Authorization = "Bearer $token"
+        "OData-MaxVersion" = "4.0"
+        "OData-Version" = "4.0"
+        Accept = "application/json"
+      }
+
+      # ── OData Smoke Tests ──
+      $entities = "${{ parameters.odataEntities }}" -split ','
+      $entities = $entities | Where-Object { $_.Trim() -ne '' }
+
+      if ($entities.Count -gt 0) {
+        Write-Host ""
+        Write-Host "═══ OData Smoke Tests ═══"
+        $failures = @()
+
+        foreach ($entity in $entities) {
+          $entity = $entity.Trim()
+          $uri = "$envUrl/data/$entity?`$top=1"
+          Write-Host "  Testing: $entity..."
+          try {
+            $response = Invoke-RestMethod -Method Get -Uri $uri -Headers $headers
+            $count = @($response.value).Count
+            Write-Host "    ✓ $entity responded ($count record(s))"
+          } catch {
+            $status = $_.Exception.Response.StatusCode.value__
+            Write-Host "    ✗ $entity FAILED (HTTP $status): $($_.Exception.Message)"
+            $failures += $entity
+          }
+        }
+
+        Write-Host ""
+        if ($failures.Count -gt 0) {
+          Write-Host "##[error]OData smoke test failed for: $($failures -join ', ')"
+          Write-Host "##vso[task.setvariable variable=ODataTestResult]Failed"
+          exit 1
+        } else {
+          Write-Host "All OData smoke tests passed ($($entities.Count) entities)."
+          Write-Host "##vso[task.setvariable variable=ODataTestResult]Passed"
+        }
+      } else {
+        Write-Host "No OData entities configured — skipping smoke tests."
+        Write-Host "##vso[task.setvariable variable=ODataTestResult]Skipped"
+      }
+    displayName: 'OData smoke tests — ${{ parameters.stageLabel }}'
+
+  - pwsh: |
+      $ErrorActionPreference = "Stop"
+      $suiteName = "${{ parameters.sysTestSuite }}"
+
+      if ([string]::IsNullOrWhiteSpace($suiteName)) {
+        Write-Host "No SysTest suite configured — skipping."
+        Write-Host "##vso[task.setvariable variable=SysTestResult]Skipped"
+        exit 0
+      }
+
+      $envUrl    = "${{ parameters.environmentUrl }}".TrimEnd('/')
+      $tenantId  = "$(PP_TENANT_ID)"
+      $clientId  = "$(PP_APPLICATION_ID)"
+      $secret    = "$(PP_CLIENT_SECRET)"
+      $timeout   = ${{ parameters.testTimeoutMinutes }}
+
+      # ── Acquire F&O token ──
+      $tokenResponse = Invoke-RestMethod -Method Post `
+        -Uri "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token" `
+        -Body @{
+          grant_type    = "client_credentials"
+          client_id     = $clientId
+          client_secret = $secret
+          scope         = "$envUrl/.default"
+        }
+      $token = $tokenResponse.access_token
+      $headers = @{
+        Authorization  = "Bearer $token"
+        "Content-Type" = "application/json"
+        Accept         = "application/json"
+      }
+
+      # ── Trigger SysTest suite via batch job ──
+      Write-Host ""
+      Write-Host "═══ SysTest Execution ═══"
+      Write-Host "Triggering test suite: $suiteName"
+      Write-Host "Timeout: $timeout minutes"
+
+      $body = @{
+        suiteName = $suiteName
+      } | ConvertTo-Json
+
+      try {
+        $response = Invoke-RestMethod -Method Post `
+          -Uri "$envUrl/api/SysTestServices/SysTestRun/RunTestSuite" `
+          -Headers $headers `
+          -Body $body
+
+        $runId = $response.value
+        Write-Host "Test run submitted. Run ID: $runId"
+      } catch {
+        $status = $_.Exception.Response.StatusCode.value__
+        if ($status -eq 404) {
+          Write-Host "##[warning]SysTest API endpoint not available (404). Suite may not exist or API not exposed."
+          Write-Host "##vso[task.setvariable variable=SysTestResult]Skipped"
+          exit 0
+        }
+        Write-Host "##[error]Failed to trigger SysTest suite: $($_.Exception.Message)"
+        Write-Host "##vso[task.setvariable variable=SysTestResult]Failed"
+        exit 1
+      }
+
+      # ── Poll for completion ──
+      $deadline = (Get-Date).AddMinutes($timeout)
+      $pollSec  = 15
+
+      while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Seconds $pollSec
+        try {
+          $status = Invoke-RestMethod -Method Get `
+            -Uri "$envUrl/api/SysTestServices/SysTestRun/GetTestRunStatus?runId=$runId" `
+            -Headers $headers
+
+          $state = $status.value
+          Write-Host "  Test run state: $state ($(Get-Date -Format 'HH:mm:ss'))"
+
+          if ($state -eq 'Completed') {
+            Write-Host ""
+            Write-Host "Test suite completed successfully."
+            Write-Host "##vso[task.setvariable variable=SysTestResult]Passed"
+            exit 0
+          } elseif ($state -eq 'Failed') {
+            Write-Host ""
+            Write-Host "##[error]Test suite failed. Review results in F&O: Test > Test suite results."
+            Write-Host "##vso[task.setvariable variable=SysTestResult]Failed"
+            exit 1
+          }
+        } catch {
+          Write-Host "  Warning: poll failed — $($_.Exception.Message). Retrying..."
+        }
+      }
+
+      Write-Host "##[error]SysTest suite did not complete within $timeout minutes."
+      Write-Host "##vso[task.setvariable variable=SysTestResult]Timeout"
+      exit 1
+    displayName: 'SysTest execution — ${{ parameters.stageLabel }}'

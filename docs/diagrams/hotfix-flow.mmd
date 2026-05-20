@@ -1,0 +1,34 @@
+---
+title: Hotfix Flow
+---
+flowchart TD
+    ISSUE[Bug found in<br/>UAT or PROD]
+    BRANCH[Branch from release/sprint-12<br/>hotfix/fix-payment-calc]
+    FIX[Develop fix]
+    PR_REL[PR to release/sprint-12]
+    MERGE_REL[Merged to release branch]
+    BUILD[build.yml<br/>Artifact created]
+    UAT[deploy.yml → UAT]
+    DM[deploy.yml → DM]
+    GOLD[release.yml → GOLD]
+    PROD[release.yml → PROD]
+    PR_MAIN[PR to main]
+    MERGE_MAIN[Merged to main<br/>Prevents regression in next sprint]
+
+    ISSUE --> BRANCH
+    BRANCH --> FIX
+    FIX --> PR_REL
+    PR_REL --> MERGE_REL
+    MERGE_REL --> BUILD
+    BUILD --> UAT
+    UAT --> DM
+    DM --> GOLD
+    GOLD -->|approval| PROD
+
+    FIX --> PR_MAIN
+    PR_MAIN --> MERGE_MAIN
+
+    style ISSUE fill:#fce4ec,stroke:#f44336
+    style MERGE_REL fill:#e3f2fd,stroke:#2196f3
+    style MERGE_MAIN fill:#e8f5e9,stroke:#4caf50
+    style PROD fill:#fce4ec,stroke:#f44336

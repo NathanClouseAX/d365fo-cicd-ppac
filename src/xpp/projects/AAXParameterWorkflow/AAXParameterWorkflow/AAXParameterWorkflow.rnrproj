@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <BuildTasksDirectory Condition=" '$(BuildTasksDirectory)' == ''">$(MSBuildProgramFiles32)\MSBuild\Microsoft\Dynamics\AX</BuildTasksDirectory>
+    <Model>AAXParameterWorkflow</Model>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <OutputPath>bin</OutputPath>
+    <SchemaVersion>2.0</SchemaVersion>
+    <GenerateCrossReferences>True</GenerateCrossReferences>
+    <RunAppCheckerRules>False</RunAppCheckerRules>
+    <LogAppcheckerDiagsAsErrors>False</LogAppcheckerDiagsAsErrors>
+    <DeployOnline>False</DeployOnline>
+    <ProjectGuid>{48625815-9e79-4d7d-bb0d-7241249b891e}</ProjectGuid>
+    <Name>AAXParameterWorkflow</Name>
+    <RootNamespace>AAXParameterWorkflow</RootNamespace>
+    <StartupType>Class</StartupType>
+    <StartupObject>Class1</StartupObject>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <Configuration>Debug</Configuration>
+    <DBSyncInBuild>False</DBSyncInBuild>
+    <GenerateFormAdaptors>False</GenerateFormAdaptors>
+    <Company>
+    </Company>
+    <Partition>initial</Partition>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DataEntityExpandParentChildRelations>False</DataEntityExpandParentChildRelations>
+    <DataEntityUseLabelTextAsFieldName>False</DataEntityUseLabelTextAsFieldName>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="Action Menu Items\" />
+    <Folder Include="Base Enums\" />
+    <Folder Include="Classes\" />
+    <Folder Include="Data Entities\" />
+    <Folder Include="Display Menu Items\" />
+    <Folder Include="Extended Data Types\" />
+    <Folder Include="Form Extensions\" />
+    <Folder Include="Forms\" />
+    <Folder Include="Menu Extensions\" />
+    <Folder Include="Security Privileges\" />
+    <Folder Include="Table Extensions\" />
+    <Folder Include="Tables\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AxClass\AAXParameterActivate">
+      <SubType>Content</SubType>
+      <Name>AAXParameterActivate</Name>
+      <Link>Classes\AAXParameterActivate</Link>
+    </Content>
+    <Content Include="AxClass\AAXParameterActivate_SystemParameters">
+      <SubType>Content</SubType>
+      <Name>AAXParameterActivate_SystemParameters</Name>
+      <Link>Classes\AAXParameterActivate_SystemParameters</Link>
+    </Content>
+    <Content Include="AxClass\AAXParameterCompare">
+      <SubType>Content</SubType>
+      <Name>AAXParameterCompare</Name>
+      <Link>Classes\AAXParameterCompare</Link>
+    </Content>
+    <Content Include="AxClass\AAXParameterCompare_SystemParameters">
+      <SubType>Content</SubType>
+      <Name>AAXParameterCompare_SystemParameters</Name>
+      <Link>Classes\AAXParameterCompare_SystemParameters</Link>
+    </Content>
+    <Content Include="AxClass\AAXParameterPublish">
+      <SubType>Content</SubType>
+      <Name>AAXParameterPublish</Name>
+      <Link>Classes\AAXParameterPublish</Link>
+    </Content>
+    <Content Include="AxClass\AAXParameterPublish_SystemParameters">
+      <SubType>Content</SubType>
+      <Name>AAXParameterPublish_SystemParameters</Name>
+      <Link>Classes\AAXParameterPublish_SystemParameters</Link>
+    </Content>
+    <Content Include="AxClass\AAXParameterUtil">
+      <SubType>Content</SubType>
+      <Name>AAXParameterUtil</Name>
+      <Link>Classes\AAXParameterUtil</Link>
+    </Content>
+    <Content Include="AxClass\AAXSystemParametersVersion_Form_EH">
+      <SubType>Content</SubType>
+      <Name>AAXSystemParametersVersion_Form_EH</Name>
+      <Link>Classes\AAXSystemParametersVersion_Form_EH</Link>
+    </Content>
+    <Content Include="AxClass\AAXSystemParameters_Form_Extension">
+      <SubType>Content</SubType>
+      <Name>AAXSystemParameters_Form_Extension</Name>
+      <Link>Classes\AAXSystemParameters_Form_Extension</Link>
+    </Content>
+    <Content Include="AxClass\Class1">
+      <SubType>Content</SubType>
+      <Name>Class1</Name>
+      <Link>Classes\Class1</Link>
+    </Content>
+    <Content Include="AxClass\SystemParameters_AAXParameterWorkflow_Extension">
+      <SubType>Content</SubType>
+      <Name>SystemParameters_AAXParameterWorkflow_Extension</Name>
+      <Link>Classes\SystemParameters_AAXParameterWorkflow_Extension</Link>
+    </Content>
+    <Content Include="AxDataEntityView\AAXSystemParametersVersionEntity">
+      <SubType>Content</SubType>
+      <Name>AAXSystemParametersVersionEntity</Name>
+      <Link>Data Entities\AAXSystemParametersVersionEntity</Link>
+    </Content>
+    <Content Include="AxEdt\AAXEffectiveAsOfSessionDate">
+      <SubType>Content</SubType>
+      <Name>AAXEffectiveAsOfSessionDate</Name>
+      <Link>Extended Data Types\AAXEffectiveAsOfSessionDate</Link>
+    </Content>
+    <Content Include="AxEdt\AAXVersionCreationSequenceNumber">
+      <SubType>Content</SubType>
+      <Name>AAXVersionCreationSequenceNumber</Name>
+      <Link>Extended Data Types\AAXVersionCreationSequenceNumber</Link>
+    </Content>
+    <Content Include="AxEnum\AAXParameterStatus">
+      <SubType>Content</SubType>
+      <Name>AAXParameterStatus</Name>
+      <Link>Base Enums\AAXParameterStatus</Link>
+    </Content>
+    <Content Include="AxForm\AAXParameterCompare">
+      <SubType>Content</SubType>
+      <Name>AAXParameterCompare</Name>
+      <Link>Forms\AAXParameterCompare</Link>
+    </Content>
+    <Content Include="AxForm\AAXSystemParametersVersion">
+      <SubType>Content</SubType>
+      <Name>AAXSystemParametersVersion</Name>
+      <Link>Forms\AAXSystemParametersVersion</Link>
+    </Content>
+    <Content Include="AxMenuExtension\SystemAdministration.AAXParameterWorkflow">
+      <SubType>Content</SubType>
+      <Name>SystemAdministration.AAXParameterWorkflow</Name>
+      <Link>Menu Extensions\SystemAdministration.AAXParameterWorkflow</Link>
+    </Content>
+    <Content Include="AxMenuItemAction\AAXParameterActivate_SystemParameters">
+      <SubType>Content</SubType>
+      <Name>AAXParameterActivate_SystemParameters</Name>
+      <Link>Action Menu Items\AAXParameterActivate_SystemParameters</Link>
+    </Content>
+    <Content Include="AxMenuItemDisplay\AAXParameterCompare">
+      <SubType>Content</SubType>
+      <Name>AAXParameterCompare</Name>
+      <Link>Display Menu Items\AAXParameterCompare</Link>
+    </Content>
+    <Content Include="AxMenuItemDisplay\AAXSystemParametersVersion">
+      <SubType>Content</SubType>
+      <Name>AAXSystemParametersVersion</Name>
+      <Link>Display Menu Items\AAXSystemParametersVersion</Link>
+    </Content>
+    <Content Include="AxSecurityPrivilege\AAXSystemParametersVersionEntityMaintain">
+      <SubType>Content</SubType>
+      <Name>AAXSystemParametersVersionEntityMaintain</Name>
+      <Link>Security Privileges\AAXSystemParametersVersionEntityMaintain</Link>
+    </Content>
+    <Content Include="AxSecurityPrivilege\AAXSystemParametersVersionEntityView">
+      <SubType>Content</SubType>
+      <Name>AAXSystemParametersVersionEntityView</Name>
+      <Link>Security Privileges\AAXSystemParametersVersionEntityView</Link>
+    </Content>
+    <Content Include="AxTableExtension\SystemParameters.AAXParameterWorkflow">
+      <SubType>Content</SubType>
+      <Name>SystemParameters.AAXParameterWorkflow</Name>
+      <Link>Table Extensions\SystemParameters.AAXParameterWorkflow</Link>
+    </Content>
+    <Content Include="AxTable\AAXBatchGlobalValues">
+      <SubType>Content</SubType>
+      <Name>AAXBatchGlobalValues</Name>
+      <Link>Tables\AAXBatchGlobalValues</Link>
+    </Content>
+    <Content Include="AxTable\AAXFileUploadConfigurationValues">
+      <SubType>Content</SubType>
+      <Name>AAXFileUploadConfigurationValues</Name>
+      <Link>Tables\AAXFileUploadConfigurationValues</Link>
+    </Content>
+    <Content Include="AxTable\AAXSystemNotificationParametersValues">
+      <SubType>Content</SubType>
+      <Name>AAXSystemNotificationParametersValues</Name>
+      <Link>Tables\AAXSystemNotificationParametersValues</Link>
+    </Content>
+    <Content Include="AxTable\AAXSystemParametersValues">
+      <SubType>Content</SubType>
+      <Name>AAXSystemParametersValues</Name>
+      <Link>Tables\AAXSystemParametersValues</Link>
+    </Content>
+    <Content Include="AxTable\AAXSystemParametersVersion">
+      <SubType>Content</SubType>
+      <Name>AAXSystemParametersVersion</Name>
+      <Link>Tables\AAXSystemParametersVersion</Link>
+    </Content>
+    <Content Include="AxTable\AAXSystemParametersVersionStaging">
+      <SubType>Content</SubType>
+      <Name>AAXSystemParametersVersionStaging</Name>
+      <Link>Tables\AAXSystemParametersVersionStaging</Link>
+    </Content>
+    <Content Include="AxTable\AAXtmpParameterCompare">
+      <SubType>Content</SubType>
+      <Name>AAXtmpParameterCompare</Name>
+      <Link>Tables\AAXtmpParameterCompare</Link>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.Common.targets" />
+  <Import Project="$(BuildTasksDirectory)\Microsoft.Dynamics.Framework.Tools.BuildTasks.17.0.targets" />
+</Project>

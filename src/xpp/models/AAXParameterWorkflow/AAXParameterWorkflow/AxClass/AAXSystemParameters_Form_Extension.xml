@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXSystemParameters_Form_Extension</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// Chain-of-command extension on the standard SystemParameters form.
+/// Makes most parameter data sources and fields read-only to enforce that changes
+/// go through the versioned parameter workflow instead of direct edits.
+/// </summary>
+[ExtensionOf(formStr(SystemParameters))]
+final class AAXSystemParameters_Form_Extension
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>init</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Locks down most fields on the standard SystemParameters form so users must make
+    /// changes through the versioned parameter workflow (AAXSystemParametersVersion form).
+    /// Only SystemPrivacyStatementURL remains editable here as it is not part of the
+    /// versioned parameter set.
+    /// </summary>
+    public void init()
+    {
+        next init();
+
+        FormRun formRun = this as FormRun;
+
+        // Get references to all data sources on the standard SystemParameters form
+        FormDataSource SystemParameters_ds = formRun.dataSource(formDataSourceStr(SystemParameters, SystemParameters));
+        FormDataSource EventSystemParameterValues_ds = formRun.dataSource(formDataSourceStr(SystemParameters, EventSystemParameters));
+        FormDataSource FileUploadConfiguration_ds = formRun.dataSource(formDataSourceStr(SystemParameters, FileUploadConfiguration));
+        FormDataSource SysFileStoreParameters_ds = formRun.dataSource(formDataSourceStr(SystemParameters, SysFileStoreParameters));
+        FormDataSource BIMeasurementParameters_ds = formRun.dataSource(formDataSourceStr(SystemParameters, BIMeasurementParameters));
+        FormDataSource DataFeedsParameters_ds = formRun.dataSource(formDataSourceStr(SystemParameters, DataFeedsParameters));
+        FormDataSource SystemNotificationParameters_ds = formRun.dataSource(formDataSourceStr(SystemParameters, SystemNotificationParameters));
+
+        // Lock all secondary parameter data sources entirely
+        EventSystemParameterValues_ds.allowEdit(false);
+        FileUploadConfiguration_ds.allowEdit(false);
+        SysFileStoreParameters_ds.allowEdit(false);
+        BIMeasurementParameters_ds.allowEdit(false);
+        DataFeedsParameters_ds.allowEdit(false);
+        SystemNotificationParameters_ds.allowEdit(false);
+
+        // Lock individual fields on the SystemParameters data source that are managed by versioning
+        SystemParameters_ds.object(fieldNum(SystemParameters, SystemLanguageId)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, SystemPrivacyStatementURL)).allowEdit(true);
+        SystemParameters_ds.object(fieldNum(SystemParameters, PowerPortalAnonymousUserId)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, SRSMaxRow_CN)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, SystemCurrencyCode)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, SystemExchangeRateType)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, SystemLanguageId)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, SystemLineNumberIncrement)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, ThaiSoftwareSeqNo)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, UseAdvCertificateStore)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, UseLegacyQueryRelations)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, ODataAllowNullForEnumKeyValue)).allowEdit(false);
+        SystemParameters_ds.object(fieldNum(SystemParameters, ODataBuildMetadataCacheOnAosStartup)).allowEdit(false);
+
+        // Disable form controls for settings managed by the versioning workflow
+        formRun.control(formRun.controlId("BatchGlobalSettingsGroup")).enabled(false);
+        formRun.control(formRun.controlId("SessionIdleTimeout")).enabled(false);
+        formRun.control(formRun.controlId("LogoutOnSessionIdleTimoutCheckBox")).enabled(false);
+        formRun.control(formRun.controlId("MicrosoftGraphUsersTimeout")).enabled(false);
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

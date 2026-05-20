@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxTable xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXEventSystemParametersValues</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+public class AAXEventSystemParametersValues extends common
+{
+
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>find</Name>
+				<Source><![CDATA[
+    /// <summary>
+    ///    Finds a record in the <c>EventSystemParameters</c> table.
+    /// </summary>
+    /// <param name="_forUpdate">
+    ///    A Boolean value that indicates whether to read the record for update; optional.
+    /// </param>
+    /// <returns>
+    ///    A record in the <c>EventSystemParameters</c> table.
+    /// </returns>
+    /// <remarks>
+    ///    This method inserts a new record into the <c>EventSystemParameters</c> table if it does not exist
+    ///    and then returns it.
+    /// </remarks>
+    public client server static AAXEventSystemParametersValues find(RecId _AAXSystemParametersVersionRecId, boolean _forUpdate = false)
+    {
+        AAXEventSystemParametersValues   eventSystemParameters;
+
+        eventSystemParameters.selectForUpdate(_forUpdate);
+
+        select firstonly eventSystemParameters
+            where eventSystemParameters.AAXSystemParametersVersion == _AAXSystemParametersVersionRecId;
+
+        return eventSystemParameters;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>createDefault</Name>
+				<Source><![CDATA[
+    public static void createDefault(RecId _AAXSystemParametersVersionRecId)
+    {
+        AAXEventSystemParametersValues AAXEventSystemParametersValues;
+        EventSystemParameters EventSystemParameters;
+
+        if(!AAXSystemParametersValues::exists(_AAXSystemParametersVersionRecId))
+        {
+            EventSystemParameters = EventSystemParameters::find();
+
+            AAXEventSystemParametersValues.AlertTemplateId = EventSystemParameters.AlertTemplateId;
+            AAXEventSystemParametersValues.DrillDownGroupId = EventSystemParameters.DrillDownGroupId;
+            AAXEventSystemParametersValues.MaxDays = EventSystemParameters.MaxDays;
+            AAXEventSystemParametersValues.insert();
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>exists</Name>
+				<Source><![CDATA[
+    /// <summary>
+    ///
+    /// </summary>
+    public static boolean exists(RecId _AAXSystemParametersVersionRecId)
+    {
+        return AAXEventSystemParametersValues::find(_AAXSystemParametersVersionRecId).RecId != 0;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+	<DeveloperDocumentation>@SYS326561</DeveloperDocumentation>
+	<Label>@SYS314898</Label>
+	<OperationalDomain>Local</OperationalDomain>
+	<SubscriberAccessLevel>
+		<Correct>Deny</Correct>
+		<Create>Deny</Create>
+		<Delete>Deny</Delete>
+		<Invoke>Deny</Invoke>
+		<Read>Deny</Read>
+		<Update>Deny</Update>
+	</SubscriberAccessLevel>
+	<TableGroup>Parameter</TableGroup>
+	<CacheLookup>Found</CacheLookup>
+	<ModifiedBy>Yes</ModifiedBy>
+	<ModifiedDateTime>Yes</ModifiedDateTime>
+	<Modules>SystemAdministration</Modules>
+	<SaveDataPerCompany>No</SaveDataPerCompany>
+	<TableContents>DefaultData</TableContents>
+	<DeleteActions />
+	<FieldGroups>
+		<AxTableFieldGroup>
+			<Name>AutoSummary</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoReport</Name>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>MaxDays</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>DrillDownGroupId</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>AlertTemplateId</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoLookup</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoIdentification</Name>
+			<AutoPopulate>Yes</AutoPopulate>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoBrowse</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>System</Name>
+			<Label>@SYS4278</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>MaxDays</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>AlertTemplateId</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>DrillDownGroupId</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+	</FieldGroups>
+	<Fields>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>AlertTemplateId</Name>
+			<AssetClassification>System Metadata</AssetClassification>
+			<ExtendedDataType>SysEmailSystemId</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>DrillDownGroupId</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>EventDrillDownGroupId</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>MaxDays</Name>
+			<ExtendedDataType>Days</ExtendedDataType>
+			<Label>@SYS98208</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt64">
+			<Name>AAXSystemParametersVersion</Name>
+		</AxTableField>
+	</Fields>
+	<FullTextIndexes />
+	<Indexes>
+		<AxTableIndex>
+			<Name>AAXSystemParametersVersionIdx</Name>
+			<Fields>
+				<AxTableIndexField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableIndexField>
+			</Fields>
+		</AxTableIndex>
+	</Indexes>
+	<Mappings />
+	<Relations>
+		<AxTableRelation xmlns=""
+			i:type="AxTableRelationForeignKey">
+			<Name>SysEmailSystemTable</Name>
+			<Cardinality>ZeroMore</Cardinality>
+			<RelatedTable>SysEmailSystemTable</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>AlertTemplateId</Name>
+					<SourceEDT>SysEmailSystemId</SourceEDT>
+					<Field>AlertTemplateId</Field>
+					<RelatedField>EmailId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+			<Index>emailIdIdx</Index>
+		</AxTableRelation>
+		<AxTableRelation>
+			<Name>AAXSystemParametersVersion</Name>
+			<Cardinality>ExactlyOne</Cardinality>
+			<OnDelete>Cascade</OnDelete>
+			<RelatedTable>AAXSystemParametersVersion</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>AAXSystemParametersVersion</Name>
+					<Field>AAXSystemParametersVersion</Field>
+					<RelatedField>RecId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+	</Relations>
+	<StateMachines />
+</AxTable>

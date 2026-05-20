@@ -1,0 +1,136 @@
+# cleanup-environments.yml
+# Scheduled daily — finds PPAC environments provisioned from branches that no longer exist and deletes them.
+# Matches environments named like feature-*, bug-*, hotfix-* (the naming convention from provision-environment.yml).
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: '0 6 * * *'
+    displayName: 'Daily cleanup at 06:00 UTC'
+    branches:
+      include:
+        - main
+    always: true
+
+name: cleanup-envs-$(Date:yyyyMMdd).$(Rev:r)
+
+parameters:
+  - name: dryRun
+    displayName: 'Dry run (log only, do not delete)'
+    type: boolean
+    default: true
+
+pool:
+  vmImage: windows-2022
+
+variables:
+  - group: PowerPlatform-Auth
+
+stages:
+- stage: Cleanup
+  displayName: 'Clean up orphaned environments'
+  jobs:
+  - job: FindAndDelete
+    displayName: 'Find orphaned environments and delete'
+    timeoutInMinutes: 30
+    steps:
+      - checkout: self
+        fetchDepth: 0
+
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+          $dryRun = [System.Convert]::ToBoolean('${{ parameters.dryRun }}')
+
+          $tenantId      = "$(PP_TENANT_ID)"
+          $applicationId = "$(PP_APPLICATION_ID)"
+          $clientSecret  = "$(PP_CLIENT_SECRET)"
+
+          Write-Host "=== Environment Cleanup ==="
+          Write-Host "Dry run: $dryRun"
+          Write-Host ""
+
+          # Get all remote branches as full refs (refs/heads/feature/foo)
+          Write-Host "Fetching remote branches..."
+          $remoteBranches = git branch -r --format '%(refname:short)' |
+            ForEach-Object { "refs/heads/$($_ -replace '^origin/', '')" }
+
+          Write-Host "Found $($remoteBranches.Count) remote branches."
+          Write-Host ""
+
+          # Authenticate to PPAC
+          Write-Host "Installing PowerApps Administration module..."
+          Install-Module Microsoft.PowerApps.Administration.PowerShell -Force -Scope CurrentUser -AllowClobber
+
+          Write-Host "Authenticating to Power Platform..."
+          Add-PowerAppsAccount -Endpoint prod -TenantID $tenantId -ApplicationId $applicationId -ClientSecret $clientSecret
+
+          # Get all environments
+          Write-Host "Fetching PPAC environments..."
+          $allEnvs = Get-AdminPowerAppEnvironment
+
+          # Filter to environments tagged with "branch:" in their description
+          $candidates = $allEnvs | Where-Object {
+            $desc = $_.Internal.properties.description
+            $desc -and $desc -match '^branch:'
+          }
+
+          Write-Host "Found $($candidates.Count) environments with branch tags."
+          Write-Host ""
+
+          $orphaned = @()
+          $active = @()
+
+          foreach ($env in $candidates) {
+            $displayName = $env.DisplayName
+            $envId = $env.EnvironmentName
+            $state = $env.Internal.properties.provisioningState
+            $desc = $env.Internal.properties.description
+
+            # Extract branch ref from description (format: "branch:refs/heads/feature/foo" or "branch:refs/heads/... pr:123")
+            $branchRef = ($desc -split '\s+')[0] -replace '^branch:', ''
+
+            if ($remoteBranches -contains $branchRef) {
+              $active += $displayName
+              Write-Host "[ACTIVE]   $displayName ($envId) — $branchRef exists, state=$state"
+            } else {
+              $orphaned += $env
+              Write-Host "[ORPHANED] $displayName ($envId) — $branchRef deleted, state=$state"
+            }
+          }
+
+          Write-Host ""
+          Write-Host "=== Summary ==="
+          Write-Host "Active (branch exists): $($active.Count)"
+          Write-Host "Orphaned (branch gone): $($orphaned.Count)"
+          Write-Host ""
+
+          if ($orphaned.Count -eq 0) {
+            Write-Host "Nothing to clean up."
+            exit 0
+          }
+
+          foreach ($env in $orphaned) {
+            $displayName = $env.DisplayName
+            $envId = $env.EnvironmentName
+
+            if ($dryRun) {
+              Write-Host "[DRY RUN] Would delete: $displayName ($envId)"
+            } else {
+              Write-Host "Deleting: $displayName ($envId)..."
+              try {
+                Remove-AdminPowerAppEnvironment -EnvironmentName $envId
+                Write-Host "  Deletion initiated."
+              } catch {
+                Write-Host "##[warning]Failed to delete $displayName ($envId): $_"
+              }
+            }
+          }
+
+          Write-Host ""
+          if ($dryRun) {
+            Write-Host "Dry run complete. Set dryRun=false to actually delete."
+          } else {
+            Write-Host "Cleanup complete. $($orphaned.Count) environment(s) deleted."
+          }
+        displayName: 'Find and clean up orphaned environments'

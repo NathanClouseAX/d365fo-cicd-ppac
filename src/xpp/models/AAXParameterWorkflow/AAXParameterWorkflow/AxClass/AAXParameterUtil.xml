@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXParameterUtil</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// Utility class for copying field values between parameter tables and their versioned counterparts.
+/// Uses reflection (SysDictTable/SysDictField) to match fields by name, so version value tables
+/// must use the same field names as their standard parameter table counterparts.
+/// </summary>
+internal final class AAXParameterUtil
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>copyFromParameterToVersion</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Copies all non-system field values from a standard parameter record into a version value record
+    /// by matching fields by name. Fields that exist on the parameter table but not on the version
+    /// table are silently skipped, allowing the version table to be a subset.
+    /// </summary>
+    /// <param name = "parameter">Source record (e.g., SystemParameters)</param>
+    /// <param name = "version">Target record (e.g., AAXSystemParametersValues)</param>
+    /// <returns>The version record with copied field values (not yet persisted)</returns>
+    public static Common copyFromParameterToVersion(Common parameter, Common version)
+    {
+        SysDictTable parameterDictTable = new SysDictTable(parameter.TableId);
+        SysDictField parameterCurrentField;
+        FieldId      fieldId;
+
+        for (fieldId = parameterDictTable.fieldNext(0); fieldId; fieldId = parameterDictTable.fieldNext(fieldId))
+        {
+            parameterCurrentField = parameterDictTable.fieldObject(fieldId);
+
+            // Skip system fields like RecId, CreatedDateTime, etc.
+            if (parameterCurrentField.isSystem())
+            {
+                continue;
+            }
+
+            // Look up the corresponding field on the version table by name
+            SysDictField versionField = SysDictField::findFieldByName(tableId2Name(version.TableId), parameterCurrentField.name());
+            if(versionField == null)
+            {
+                continue;
+            }
+
+            version.(versionField.id()) = parameter.(parameterCurrentField.id());
+        }
+
+        return version;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

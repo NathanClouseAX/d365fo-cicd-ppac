@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxTable xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXFileUploadConfigurationValues</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+public class AAXFileUploadConfigurationValues extends common
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>find</Name>
+				<Source><![CDATA[
+    /// <summary>
+    ///    Finds a record in the <c>FileUploadConfiguration</c> table.
+    /// </summary>
+    /// <param name="_forUpdate">
+    ///    A Boolean value that indicates whether to read the record for update; optional.
+    /// </param>
+    /// <returns>
+    ///    A record in the <c>FileUploadConfiguration</c> table.
+    /// </returns>
+    /// <remarks>
+    ///    This method inserts a new record into the <c>FileUploadConfiguration</c> table if one does not exist.
+    /// </remarks>
+    public static AAXFileUploadConfigurationValues find(RecId _AAXSystemParametersVersionRecId, boolean _forUpdate = false)
+    {
+        AAXFileUploadConfigurationValues fileUploadConfiguration;
+
+        fileUploadConfiguration.selectForUpdate(_forUpdate);
+
+        select firstonly fileUploadConfiguration
+            where fileUploadConfiguration.AAXSystemParametersVersion == _AAXSystemParametersVersionRecId;
+
+        return fileUploadConfiguration;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>createDefault</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Snapshots current FileUploadConfiguration values (blob link expiration, bundle limits,
+    /// scan intervals) into a version value record. Idempotent: skips if already exists.
+    /// </summary>
+    /// <param name = "_AAXSystemParametersVersionRecId">RecId of the parent version</param>
+    public static void createDefault(RecId _AAXSystemParametersVersionRecId)
+    {
+        AAXFileUploadConfigurationValues AAXFileUploadConfigurationValues;
+        FileUploadConfiguration FileUploadConfiguration;
+
+        if(!AAXSystemParametersValues::exists(_AAXSystemParametersVersionRecId))
+        {
+            FileUploadConfiguration = FileUploadConfiguration::find();
+
+            AAXFileUploadConfigurationValues.AAXSystemParametersVersion = _AAXSystemParametersVersionRecId;
+            AAXFileUploadConfigurationValues.File_BlobLinkExpirationTimeSpanInMinutes = FileUploadConfiguration.File_BlobLinkExpirationTimeSpanInMinutes;
+            AAXFileUploadConfigurationValues.Image_BlobLinkExpirationTimeSpanInMinutes = FileUploadConfiguration.Image_BlobLinkExpirationTimeSpanInMinutes;
+            AAXFileUploadConfigurationValues.Video_BlobLinkExpirationTimeSpanInMinutes = FileUploadConfiguration.Video_BlobLinkExpirationTimeSpanInMinutes;
+            AAXFileUploadConfigurationValues.MaxFilesPerBundle = FileUploadConfiguration.MaxFilesPerBundle;
+            AAXFileUploadConfigurationValues.MaxBundleCount = FileUploadConfiguration.MaxBundleCount;
+            AAXFileUploadConfigurationValues.FileExpirationScanIntervalInHours = FileUploadConfiguration.FileExpirationScanIntervalInHours;
+
+            AAXFileUploadConfigurationValues.insert();
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>exists</Name>
+				<Source><![CDATA[
+    /// <summary>
+    ///
+    /// </summary>
+    public static boolean exists(RecId _AAXSystemParametersVersionRecId)
+    {
+        return AAXFileUploadConfigurationValues::find(_AAXSystemParametersVersionRecId).RecId != 0;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+	<DeveloperDocumentation>@SYS:FileUploadConfiguration_DeveloperDocumentation</DeveloperDocumentation>
+	<Label>@SYS:FileUploadConfiguration_TableLabel</Label>
+	<OperationalDomain>Shared</OperationalDomain>
+	<SubscriberAccessLevel>
+		<Read>Allow</Read>
+	</SubscriberAccessLevel>
+	<TableGroup>Parameter</TableGroup>
+	<TitleField1>AAXSystemParametersVersion</TitleField1>
+	<TitleField2>File_BlobLinkExpirationTimeSpanInMinutes</TitleField2>
+	<ModifiedBy>Yes</ModifiedBy>
+	<ModifiedDateTime>Yes</ModifiedDateTime>
+	<Modules>SystemAdministration</Modules>
+	<ReplacementKey>AAXSystemParametersVersionIdx</ReplacementKey>
+	<SaveDataPerCompany>No</SaveDataPerCompany>
+	<TableContents>DefaultData</TableContents>
+	<DeleteActions />
+	<FieldGroups>
+		<AxTableFieldGroup>
+			<Name>AutoReport</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoLookup</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoIdentification</Name>
+			<AutoPopulate>Yes</AutoPopulate>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoSummary</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoBrowse</Name>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>File_BlobLinkExpirationTimeSpanInMinutes</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Image_BlobLinkExpirationTimeSpanInMinutes</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Video_BlobLinkExpirationTimeSpanInMinutes</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>MaxFilesPerBundle</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>MaxBundleCount</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>FileExpirationScanIntervalInHours</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>BlobLinkExpirationTimeSpanInMinutes</Name>
+			<Label>@SYS:FileUploadConfiguration_BlobLinkExpirationTimeSpanInMinutes_Group</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>File_BlobLinkExpirationTimeSpanInMinutes</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Image_BlobLinkExpirationTimeSpanInMinutes</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Video_BlobLinkExpirationTimeSpanInMinutes</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+	</FieldGroups>
+	<Fields>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>File_BlobLinkExpirationTimeSpanInMinutes</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<Label>@SYS:FileUploadConfiguration_File_BlobLinkExpirationTimeSpanInMinutes</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>Image_BlobLinkExpirationTimeSpanInMinutes</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<Label>@SYS:FileUploadConfiguration_Image_BlobLinkExpirationTimeSpanInMinutes</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>Video_BlobLinkExpirationTimeSpanInMinutes</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<Label>@SYS:FileUploadConfiguration_Video_BlobLinkExpirationTimeSpanInMinutes</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>MaxFilesPerBundle</Name>
+			<AssetClassification>System Metadata</AssetClassification>
+			<Label>@ApplicationPlatform:FileUploadConfiguration_MaxFilesPerBundle</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>MaxBundleCount</Name>
+			<AssetClassification>System Metadata</AssetClassification>
+			<Label>@ApplicationPlatform:FileUploadConfiguration_MaxBundleCount</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>FileExpirationScanIntervalInHours</Name>
+			<AssetClassification>System Metadata</AssetClassification>
+			<Label>@ApplicationPlatform:FileUploadConfiguration_FileExpirationScanIntervalInHours</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt64">
+			<Name>AAXSystemParametersVersion</Name>
+		</AxTableField>
+	</Fields>
+	<FullTextIndexes />
+	<Indexes>
+		<AxTableIndex>
+			<Name>AAXSystemParametersVersionIdx</Name>
+			<AlternateKey>Yes</AlternateKey>
+			<Fields>
+				<AxTableIndexField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableIndexField>
+			</Fields>
+		</AxTableIndex>
+	</Indexes>
+	<Mappings />
+	<Relations>
+		<AxTableRelation>
+			<Name>AAXSystemParametersVersion</Name>
+			<Cardinality>ExactlyOne</Cardinality>
+			<OnDelete>Cascade</OnDelete>
+			<RelatedTable>AAXSystemParametersVersion</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>AAXSystemParametersVersion</Name>
+					<Field>AAXSystemParametersVersion</Field>
+					<RelatedField>RecId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+	</Relations>
+	<StateMachines />
+</AxTable>

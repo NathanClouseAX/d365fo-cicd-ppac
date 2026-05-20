@@ -1,0 +1,67 @@
+---
+title: Environment Lifecycle
+---
+flowchart TD
+    subgraph "Developer Environment (per feature branch)"
+        PUSH[Feature branch created<br/>from work item]
+        BUILD_F[build.yml<br/>Compile + Package]
+        PROV_F[provision-environment.yml<br/>New-AdminPowerAppEnvironment]
+        WAIT_F[Wait 4 hours<br/>Environment stabilization<br/>Agentless server delay]
+        GOV_F[Match governance config<br/>Managed Environment alignment]
+        COPY_F[post-provision-copy.yml<br/>Copy DB from known good source]
+        SANDBOX_F[("Dev Environment Ready<br/>~5-6 hours total")]
+        DEV_WORK[Developer works<br/>against real data]
+        DEV_TEST[Developer tests<br/>against real data]
+    end
+
+    subgraph "PR Test Environment (automatic, per PR)"
+        PR[Create PR to main]
+        PROV_PR[Provision test env<br/>pr-NUMBER]
+        COPY_PR[Copy DB from<br/>known good source]
+        DEPLOY_PR[Deploy package<br/>+ DB Sync]
+        TEST_PR[OData smoke tests<br/>+ other tests]
+        TEAR_PR[Teardown PR env<br/>Always runs]
+        RESULT{Confirms code can<br/>merge, deploy,<br/>and DB sync}
+    end
+
+    subgraph "Cleanup (automated)"
+        ACCEPT[PR accepted<br/>merged to main]
+        CLEANUP[cleanup-environments.yml<br/>Daily scheduled<br/>Deletes orphaned envs]
+        DELETE_PR[Delete PR test env<br/>Teardown job - always runs]
+    end
+
+    PUSH --> BUILD_F
+    PUSH --> PROV_F
+    PROV_F --> WAIT_F
+    WAIT_F --> GOV_F
+    GOV_F --> COPY_F
+    COPY_F --> SANDBOX_F
+    SANDBOX_F --> DEV_WORK
+    DEV_WORK --> DEV_TEST
+    DEV_TEST --> PR
+
+    PR --> PROV_PR
+    PROV_PR --> WAIT_PR[Wait 3 hours<br/>Agentless delay]
+    WAIT_PR --> COPY_PR
+    COPY_PR --> DEPLOY_PR
+    DEPLOY_PR --> TEST_PR
+    TEST_PR --> RESULT
+    RESULT -->|pass| TEAR_PR
+    RESULT -->|fail| TEAR_PR
+
+    RESULT -->|pass| ACCEPT
+    ACCEPT --> CLEANUP
+    ACCEPT --> DELETE_PR
+
+    style SANDBOX_F fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style PROV_F fill:#f3e5f5,stroke:#9c27b0
+    style COPY_F fill:#f3e5f5,stroke:#9c27b0
+    style PROV_PR fill:#e3f2fd,stroke:#2196f3
+    style TEST_PR fill:#fff3e0,stroke:#ff9800
+    style TEAR_PR fill:#fce4ec,stroke:#f44336
+    style RESULT fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style GOV_F fill:#f3e5f5,stroke:#9c27b0
+    style WAIT_PR fill:#e3f2fd,stroke:#2196f3
+    style CLEANUP fill:#fce4ec,stroke:#f44336
+    style DELETE_PR fill:#fce4ec,stroke:#f44336
+    style ACCEPT fill:#e8f5e9,stroke:#4caf50

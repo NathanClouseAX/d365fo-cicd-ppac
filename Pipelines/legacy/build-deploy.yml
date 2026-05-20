@@ -1,0 +1,215 @@
+# build-deploy.yml
+# Full CI/CD: Build X++ → create deployable package → deploy UAT → DM → GOLD → PROD
+# Each deploy stage uses the 3-job async pattern (Submit → Wait → Verify) via PPAC APIs.
+
+name: $(Date:yy.MM.dd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 6 * * *"   # UTC
+    displayName: Daily Build
+    branches:
+      include:
+        - main
+    always: false
+
+variables:
+  - group: Teams-Secrets
+  # Required for PPAC status polling in the Verify job of each deploy stage.
+  # Variable group must contain: PP_TENANT_ID, PP_APPLICATION_ID, PP_CLIENT_SECRET
+  # Service principal needs the Power Platform admin or Dynamics 365 admin role.
+  - group: PowerPlatform-Auth
+
+  - name: App1Package
+    value: 'Microsoft.Dynamics.AX.Application1.DevALM.BuildXpp'
+  - name: App2Package
+    value: 'Microsoft.Dynamics.AX.Application2.DevALM.BuildXpp'
+  - name: AppSuitePackage
+    value: 'Microsoft.Dynamics.AX.ApplicationSuite.DevALM.BuildXpp'
+  - name: PlatPackage
+    value: 'Microsoft.Dynamics.AX.Platform.DevALM.BuildXpp'
+  - name: ToolsPackage
+    value: 'Microsoft.Dynamics.AX.Platform.CompilerPackage'
+  - name: MetadataPath
+    value: '$(Build.SourcesDirectory)\src\xpp\models'
+  - name: NugetConfigsPath
+    value: '$(Build.SourcesDirectory)\src\xpp\build'
+  - name: NugetsPath
+    value: '$(Pipeline.Workspace)\NuGets'
+  - name: BuildSolution
+    value: '$(Build.SourcesDirectory)\src\xpp\projects\Build\Build.sln'
+  # Canonical artifact name — referenced by build publish and all deploy stages
+  - name: ArtifactName
+    value: 'drop'
+  - name: PackageFile
+    value: '$(Pipeline.Workspace)/$(ArtifactName)/CloudDeployablePackage/TemplatePackage.dll'
+
+
+stages:
+# =====================================================================
+# Stage 1: Build
+# =====================================================================
+- stage: Build
+  displayName: 'X++ Build & Package'
+  jobs:
+  - job: BuildXpp
+    displayName: 'Build solution and create deployable package'
+    timeoutInMinutes: 120
+    pool:
+      vmImage: 'windows-2022'
+      demands:
+        - msbuild
+        - visualstudio
+
+    steps:
+      - template: templates/teams-notify.yml
+        parameters:
+          title: 'Build started: $(Build.DefinitionName) #$(Build.BuildNumber)'
+          text: 'X++ build pipeline has started.'
+          themeColor: '0078D7'
+
+      - task: Cache@2
+        displayName: 'Cache NuGet packages'
+        inputs:
+          key: 'nuget | "$(Agent.OS)" | $(NugetConfigsPath)\packages.config'
+          restoreKeys: |
+            nuget | "$(Agent.OS)"
+          path: '$(NugetsPath)'
+          cacheHitVar: 'NUGET_CACHE_RESTORED'
+
+      - task: NuGetAuthenticate@1
+        displayName: 'Authenticate to Azure Artifacts'
+
+      - task: NuGetCommand@2
+        displayName: 'NuGet: install DevALM packages'
+        condition: ne(variables.NUGET_CACHE_RESTORED, 'true')
+        retryCountOnTaskFailure: 2
+        inputs:
+          command: custom
+          arguments: >-
+            install -NonInteractive
+            "$(NugetConfigsPath)\packages.config"
+            -ConfigFile "$(NugetConfigsPath)\nuget.config"
+            -Verbosity Detailed
+            -ExcludeVersion
+            -OutputDirectory "$(NugetsPath)"
+
+      - task: XppUpdateModelVersion@0
+        displayName: 'Update X++ Model Version'
+        inputs:
+          XppSourcePath: '$(MetadataPath)'
+          VersionNumber: '$(Build.BuildNumber)'
+
+      - task: VSBuild@1
+        displayName: 'Build X++ solution'
+        inputs:
+          solution: '$(BuildSolution)'
+          vsVersion: '17.0'
+          msbuildArgs: >-
+            /p:BuildTasksDirectory="$(NugetsPath)\$(ToolsPackage)\DevAlm"
+            /p:MetadataDirectory="$(MetadataPath)"
+            /p:FrameworkDirectory="$(NugetsPath)\$(ToolsPackage)"
+            /p:ReferenceFolder="$(NugetsPath)\$(PlatPackage)\ref\net40;$(NugetsPath)\$(App1Package)\ref\net40;$(NugetsPath)\$(App2Package)\ref\net40;$(NugetsPath)\$(AppSuitePackage)\ref\net40;$(MetadataPath);$(Build.BinariesDirectory)"
+            /p:ReferencePath="$(NugetsPath)\$(ToolsPackage)"
+            /p:OutputDirectory="$(Build.BinariesDirectory)"
+
+      - task: CopyFiles@2
+        displayName: 'Collect X++ compile logs'
+        condition: succeededOrFailed()
+        inputs:
+          SourceFolder: '$(Build.SourcesDirectory)'
+          Contents: |
+            **\Dynamics.AX.*.xppc.*
+            **\Dynamics.AX.*.labelc.*
+            **\Dynamics.AX.*.reportsc.*
+          TargetFolder: '$(Build.ArtifactStagingDirectory)\Logs'
+
+      - task: XppCreatePackage@2
+        displayName: 'Create deployable package'
+        inputs:
+          XppToolsPath:        '$(NugetsPath)\$(ToolsPackage)'
+          CreateCloudPackage:  true
+          CreateRegularPackage: false
+
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish artifact: $(ArtifactName)'
+        condition: succeededOrFailed()
+        inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          ArtifactName:  '$(ArtifactName)'
+
+      - template: templates/teams-notify.yml
+        parameters:
+          title: 'Build succeeded: $(Build.DefinitionName) #$(Build.BuildNumber)'
+          text: 'X++ build and deployable package completed successfully.'
+          themeColor: '2EB886'
+          condition: 'succeeded()'
+
+      - template: templates/teams-notify.yml
+        parameters:
+          title: 'Build failed: $(Build.DefinitionName) #$(Build.BuildNumber)'
+          text: 'X++ build pipeline failed. Check the logs for details.'
+          themeColor: 'D83B01'
+          condition: 'failed()'
+
+# =====================================================================
+# Stage 2: Deploy UAT
+# =====================================================================
+- stage: DeployUAT
+  displayName: 'Deploy to UAT'
+  dependsOn: Build
+  condition: succeeded('Build')
+  jobs:
+    - template: templates/deploy-finops-package.yml
+      parameters:
+        stageLabel:            'UAT'
+        environmentName:       'Nclouse-uat'
+        serviceConnectionName: 'Nclouse-UAT'
+        packageFile:           '$(PackageFile)'
+
+# =====================================================================
+# Stage 3: Deploy DM
+# =====================================================================
+- stage: DeployDM
+  displayName: 'Deploy to DM'
+  dependsOn: DeployUAT
+  condition: succeeded('DeployUAT')
+  jobs:
+    - template: templates/deploy-finops-package.yml
+      parameters:
+        stageLabel:            'DM'
+        environmentName:       'Nclouse-DM'
+        serviceConnectionName: 'Nclouse-DM'
+        packageFile:           '$(PackageFile)'
+
+# =====================================================================
+# Stage 4: Deploy GOLD
+# =====================================================================
+- stage: DeployGOLD
+  displayName: 'Deploy to GOLD'
+  dependsOn: DeployDM
+  condition: succeeded('DeployDM')
+  jobs:
+    - template: templates/deploy-finops-package.yml
+      parameters:
+        stageLabel:            'GOLD'
+        environmentName:       'Nclouse-GOLD'
+        serviceConnectionName: 'Nclouse-GOLD'
+        packageFile:           '$(PackageFile)'
+
+# =====================================================================
+# Stage 5: Deploy PROD
+# =====================================================================
+- stage: DeployPROD
+  displayName: 'Deploy to PROD'
+  dependsOn: DeployGOLD
+  condition: succeeded('DeployGOLD')
+  jobs:
+    - template: templates/deploy-finops-package.yml
+      parameters:
+        stageLabel:            'PROD'
+        environmentName:       'Nclouse-Prod'
+        serviceConnectionName: 'Nclouse-Prod'
+        packageFile:           '$(PackageFile)'

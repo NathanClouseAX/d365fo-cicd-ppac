@@ -1,0 +1,629 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxTable xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXSystemParametersVersion</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+public class AAXSystemParametersVersion extends common
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>shouldThrowExceptionOnZeroDelete</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Determines if concurrent deletes should throw exception.
+    /// </summary>
+    /// <returns>true, if exception should be thrown; otherwise, false.</returns>
+    public boolean shouldThrowExceptionOnZeroDelete()
+    {
+        return true;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>CreateDefault</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Bootstrap method: creates the first version record if none exist. Called on every
+    /// SystemParameters::find() via the CoC extension to ensure the versioning system is
+    /// always initialized. The default version is set to Active with a null FromDate so
+    /// it is immediately effective. insert() triggers createDefaultBundle() which snapshots
+    /// current parameter values, and then createDefaultBundle is called again here to ensure
+    /// coverage after the re-select.
+    /// </summary>
+    public static void CreateDefault()
+    {
+        AAXSystemParametersVersion AAXSystemParametersVersion;
+
+        if(!AAXSystemParametersVersion::existsDefault())
+        {
+            ttsbegin;
+
+            AAXSystemParametersVersion.Name = "Default System Parameters Version";
+            AAXSystemParametersVersion.VersionIdBuild = 1;
+            AAXSystemParametersVersion.VersionIdMajor = 1;
+            AAXSystemParametersVersion.VersionIdMinor = AAXSystemParametersVersion::getLatestVersionIdMinor(AAXSystemParametersVersion.VersionIdBuild, AAXSystemParametersVersion.VersionIdMajor);
+            AAXSystemParametersVersion.Status = AAXParameterStatus::Active;
+            // Null FromDate means effective from the beginning of time
+            AAXSystemParametersVersion.FromDate = dateNull();
+            AAXSystemParametersVersion.insert();
+
+            // Re-select to get the persisted record with RecId
+            AAXSystemParametersVersion = AAXSystemParametersVersion::find(AAXSystemParametersVersion.RecId);
+
+            AAXSystemParametersVersion::createDefaultBundle(AAXSystemParametersVersion.RecId);
+
+            ttscommit;
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>existsDefault</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// determine if default record exists,
+    /// </summary>
+    /// <returns>boolean</returns>
+    public static boolean existsDefault()
+    {
+        AAXSystemParametersVersion AAXSystemParametersVersion;
+
+        select firstonly1 RecId from AAXSystemParametersVersion;
+
+        return AAXSystemParametersVersion.RecId != 0;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>exists</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// check if a record exists
+    /// </summary>
+    /// <param name = "_recId">RecId</param>
+    /// <returns>boolean</returns>
+    public static boolean exists(RecId _recId)
+    {
+        return AAXSystemParametersVersion::find(_recId).RecId != 0;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>find</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Finds a version record by RecId. Uses validTimeState with min/max range to bypass
+    /// the kernel's automatic date-effective filtering, since we need to find versions
+    /// regardless of their FromDate/ToDate window.
+    /// </summary>
+    /// <param name = "_recId">AAXSystemParametersVersion.RecId</param>
+    /// <param name = "_forUpdate">Select for update if true</param>
+    /// <returns>AAXSystemParametersVersion</returns>
+    public static AAXSystemParametersVersion find(RecId _recId, boolean _forUpdate = false)
+    {
+        AAXSystemParametersVersion AAXSystemParametersVersion;
+
+        if(_forUpdate)
+        {
+            AAXSystemParametersVersion.selectForUpdate(true);
+        }
+
+        // Bypass date-effective filtering to find the record regardless of date range
+        utcDateTime minDT = DateTimeUtil::minValue();
+        utcDateTime maxDT = DateTimeUtil::maxValue();
+
+        select firstOnly validTimeState(minDT, maxDT) AAXSystemParametersVersion
+            where AAXSystemParametersVersion.RecId == _recId;
+
+        return AAXSystemParametersVersion;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>findActive</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// find active version, active version is determined by the status field, and we can only have one active version at a time, so we order by FromDate desc and RecId desc to get the latest active version.
+    /// </summary>
+    /// <param name = "_forUpdate">boolean</param>
+    /// <returns>AAXSystemParametersVersion</returns>
+    public static AAXSystemParametersVersion findActive(boolean _forUpdate = false)
+    {
+        AAXSystemParametersVersion AAXSystemParametersVersion;
+
+        if(_forUpdate)
+        {
+            AAXSystemParametersVersion.selectForUpdate(true);
+        }
+
+        select firstOnly AAXSystemParametersVersion
+            order by AAXSystemParametersVersion.FromDate desc, AAXSystemParametersVersion.RecId desc
+            where AAXSystemParametersVersion.Status == AAXParameterStatus::Active;
+
+        return AAXSystemParametersVersion;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>initValue</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Sets default values for a new version record. Auto-increments version numbers
+    /// based on existing records, defaults status to Draft, and sets the effective date
+    /// range to start today and extend indefinitely.
+    /// </summary>
+    public void initValue()
+    {
+        AAXSystemParametersVersion AAXSystemParametersVersion;
+
+        super();
+
+        // Auto-increment version numbers based on the highest existing values
+        this.VersionIdBuild = AAXSystemParametersVersion::getLatestVersionIdBuild(AAXSystemParametersVersion.VersionIdBuild);
+        this.VersionIdMajor = AAXSystemParametersVersion::getLatestVersionIdMajor();
+        this.VersionIdMinor = AAXSystemParametersVersion::getLatestVersionIdMinor(this.VersionIdMajor, this.VersionIdBuild);
+
+        // New versions start as Draft; user must explicitly activate
+        this.Status = AAXParameterStatus::Draft;
+
+        select firstonly AAXSystemParametersVersion
+            order by AAXSystemParametersVersion.ToDate desc;
+
+        this.FromDate = DateTimeUtil::getSystemDate(DateTimeUtil::getUserPreferredTimeZone());
+        this.ToDate = dateMax();
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>getLatestVersionIdMajor</Name>
+				<Source><![CDATA[
+    public static int getLatestVersionIdMajor()
+    {
+        AAXSystemParametersVersion AAXSystemParametersVersion;
+
+        int latestVersionIdMajor;
+        latestVersionIdMajor = 0;
+        select firstonly AAXSystemParametersVersion
+            order by AAXSystemParametersVersion.VersionIdMajor desc;
+        
+        latestVersionIdMajor = AAXSystemParametersVersion.VersionIdMajor;
+
+        return latestVersionIdMajor + 1;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>getLatestVersionIdBuild</Name>
+				<Source><![CDATA[
+    public static int getLatestVersionIdBuild(int _versionIdMajor)
+    {
+        AAXSystemParametersVersion AAXSystemParametersVersion;
+        int latestVersionIdBuild;
+        latestVersionIdBuild = 0;
+        select firstonly AAXSystemParametersVersion
+            order by AAXSystemParametersVersion.VersionIdBuild desc
+            where AAXSystemParametersVersion.VersionIdMajor == _versionIdMajor;
+        
+        latestVersionIdBuild = AAXSystemParametersVersion.VersionIdBuild;
+        return latestVersionIdBuild + 1;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>getLatestVersionIdMinor</Name>
+				<Source><![CDATA[
+    public static int getLatestVersionIdMinor(int _versionIdBuild, int _versionIdMajor)
+    {
+        AAXSystemParametersVersion AAXSystemParametersVersion;
+        int latestVersionIdMinor;
+        latestVersionIdMinor = 0;
+        select firstonly AAXSystemParametersVersion
+            order by AAXSystemParametersVersion.VersionIdMinor desc
+            where AAXSystemParametersVersion.VersionIdMajor == _versionIdMajor
+               && AAXSystemParametersVersion.VersionIdBuild == _versionIdBuild;
+        
+        latestVersionIdMinor = AAXSystemParametersVersion.VersionIdMinor;
+        return latestVersionIdMinor + 1;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>insert</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Builds the human-readable version string (Build.Major.Minor.Revision) before persisting,
+    /// then creates the default bundle of value records that snapshot the current live parameters.
+    /// </summary>
+    public void insert()
+    {
+        this.Version = int2Str(this.VersionIdBuild) + '.' + int2Str(this.VersionIdMajor) + '.' + int2Str(this.VersionIdMinor) + '.' + int2Str(this.VersionIdRevision);
+
+        super();
+
+        // Snapshot current live parameter values into child value tables for this version
+        AAXSystemParametersVersion::createDefaultBundle(this.RecId);
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>update</Name>
+				<Source><![CDATA[
+    public void update()
+    {
+        this.Version = int2Str(this.VersionIdBuild) + '.' + int2Str(this.VersionIdMajor) + '.' + int2Str(this.VersionIdMinor) + '.' + int2Str(this.VersionIdRevision);
+
+        super();
+
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>validateDelete</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// validate delete
+    /// </summary>
+    /// <returns>boolean</returns>
+    public boolean validateDelete()
+    {
+        boolean ret;
+
+        ret = super();
+
+        if(this.Status == AAXParameterStatus::Active)
+        {
+            ret = checkFailed("Cannot Delete active version");
+        }
+    
+        return ret;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>createDefaultBundle</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Creates the full bundle of value records for a version by snapshotting the current
+    /// live values from each standard parameter table. Each createDefault method is
+    /// idempotent - it only inserts if a value record doesn't already exist for this version.
+    /// Add new calls here when extending the module to cover additional parameter tables.
+    /// </summary>
+    /// <param name = "_AAXSystemParametersVersionRecId">RecId of the version to populate</param>
+    public static void createDefaultBundle(RecId _AAXSystemParametersVersionRecId)
+    {
+        AAXSystemParametersValues::CreateDefault(_AAXSystemParametersVersionRecId);
+        AAXFileUploadConfigurationValues::createDefault(_AAXSystemParametersVersionRecId);
+        AAXSystemNotificationParametersValues::createDefault(_AAXSystemParametersVersionRecId);
+        AAXBatchGlobalValues::createDefault(_AAXSystemParametersVersionRecId);
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>nextCreationSequenceId</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// get next creation sequeince id
+    /// </summary>
+    /// <returns>AAXVersionCreationSequenceNumber</returns>
+    public static AAXVersionCreationSequenceNumber nextCreationSequenceId()
+    {
+        AAXSystemParametersVersion AAXSystemParametersVersion;
+        AAXVersionCreationSequenceNumber currentSequenceId = 0;
+
+        select maxof(SequenceNumber) from AAXSystemParametersVersion;
+
+        if (AAXSystemParametersVersion.SequenceNumber)
+        {
+            currentSequenceId = AAXSystemParametersVersion.SequenceNumber;
+        }
+
+        return currentSequenceId + 1;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>displayEffectiveAsOfSessionDate</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Display method for the form: shows Yes/No indicating whether this version
+    /// is the one that would be effective for the current session date.
+    /// </summary>
+    public display AAXEffectiveAsOfSessionDate displayEffectiveAsOfSessionDate()
+    {
+        AAXSystemParametersVersion localAAXSystemParametersVersion = AAXSystemParametersVersion::getEffectiveVersionForDate();
+
+        if(localAAXSystemParametersVersion.RecId == this.RecId)
+        {
+            return NoYes::Yes;
+        }
+        else
+        {
+            return NoYes::No;
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>getEffectiveVersionForDate</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// gets the effective version for a given date, if no date is provided, it will use current system date. 
+    /// This method will be used to determine which version of parameters should be applied based on the system date.
+    /// getSystemDateTime() is not effected by session date so this will be the true current date/time.
+    /// </summary>
+    /// <param name = "_effectiveDate">as of / effective date</param>
+    /// <returns>AAXSystemParametersVersion</returns>
+    public static AAXSystemParametersVersion getEffectiveVersionForDate(date _effectiveDate = DateTimeUtil::date(DateTimeUtil::applyTimeZoneOffset(DateTimeUtil::getSystemDateTime(), DateTimeUtil::getCompanyTimeZone())))
+    {
+        AAXSystemParametersVersion AAXSystemParametersVersion;
+        select firstonly AAXSystemParametersVersion
+            order by AAXSystemParametersVersion.FromDate desc, AAXSystemParametersVersion.RecId asc
+            where AAXSystemParametersVersion.Status == AAXParameterStatus::Active
+               && AAXSystemParametersVersion.FromDate <= _effectiveDate
+                && (AAXSystemParametersVersion.ToDate >= _effectiveDate || AAXSystemParametersVersion.ToDate == dateNull());
+
+
+        return AAXSystemParametersVersion;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+	<Label>System Parameters Version</Label>
+	<TitleField1>Name</TitleField1>
+	<TitleField2>SequenceNumber</TitleField2>
+	<AllowRowVersionChangeTracking>Yes</AllowRowVersionChangeTracking>
+	<CacheLookup>EntireTable</CacheLookup>
+	<ClusteredIndex>NameIdx</ClusteredIndex>
+	<SaveDataPerCompany>No</SaveDataPerCompany>
+	<TableContents>BaseData</TableContents>
+	<DeleteActions>
+		<AxTableDeleteAction>
+			<Name>AAXSystemParametersValues</Name>
+			<DeleteAction>Cascade</DeleteAction>
+			<Relation></Relation>
+			<Table>AAXSystemParametersValues</Table>
+			<Tags></Tags>
+		</AxTableDeleteAction>
+	</DeleteActions>
+	<FieldGroups>
+		<AxTableFieldGroup>
+			<Name>AutoReport</Name>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>Name</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Status</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Version</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>FromDate</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>ToDate</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoLookup</Name>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>Name</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Status</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Version</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>FromDate</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>ToDate</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoIdentification</Name>
+			<AutoPopulate>Yes</AutoPopulate>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoSummary</Name>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>Name</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Status</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Version</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>FromDate</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>ToDate</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoBrowse</Name>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>Name</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Status</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Version</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>FromDate</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>ToDate</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>All</Name>
+			<Label>@CashManagement:All</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>SequenceNumber</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>VersionIdBuild</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>VersionIdMajor</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>VersionIdMinor</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>VersionIdRevision</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Name</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Status</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>Version</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>FromDate</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>ToDate</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+	</FieldGroups>
+	<Fields>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>VersionIdBuild</Name>
+			<AllowEdit>No</AllowEdit>
+			<AllowEditOnCreate>No</AllowEditOnCreate>
+			<AssetClassification>System Metadata</AssetClassification>
+			<ExtendedDataType>WorkflowConfigurationVersionBuild</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>VersionIdMajor</Name>
+			<AllowEdit>No</AllowEdit>
+			<AllowEditOnCreate>No</AllowEditOnCreate>
+			<AssetClassification>System Metadata</AssetClassification>
+			<ExtendedDataType>WorkflowConfigurationVersionMajor</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>VersionIdMinor</Name>
+			<AllowEdit>No</AllowEdit>
+			<AllowEditOnCreate>No</AllowEditOnCreate>
+			<AssetClassification>System Metadata</AssetClassification>
+			<ExtendedDataType>WorkflowConfigurationVersionMinor</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>VersionIdRevision</Name>
+			<AllowEdit>No</AllowEdit>
+			<AllowEditOnCreate>No</AllowEditOnCreate>
+			<AssetClassification>System Metadata</AssetClassification>
+			<ExtendedDataType>WorkflowConfigurationVersionRevision</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>Name</Name>
+			<ExtendedDataType>Name</ExtendedDataType>
+			<IgnoreEDTRelation>Yes</IgnoreEDTRelation>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>Status</Name>
+			<AllowEdit>No</AllowEdit>
+			<AllowEditOnCreate>No</AllowEditOnCreate>
+			<EnumType>AAXParameterStatus</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>Version</Name>
+			<AllowEdit>No</AllowEdit>
+			<AllowEditOnCreate>No</AllowEditOnCreate>
+			<ExtendedDataType>VersioningRecordTooltip</ExtendedDataType>
+			<IgnoreEDTRelation>Yes</IgnoreEDTRelation>
+			<Label>Version</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldDate">
+			<Name>FromDate</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>FromDate</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldDate">
+			<Name>ToDate</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>ToDate</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>SequenceNumber</Name>
+			<ExtendedDataType>AAXVersionCreationSequenceNumber</ExtendedDataType>
+			<IgnoreEDTRelation>Yes</IgnoreEDTRelation>
+		</AxTableField>
+	</Fields>
+	<FullTextIndexes />
+	<Indexes>
+		<AxTableIndex>
+			<Name>NameIdx</Name>
+			<AlternateKey>Yes</AlternateKey>
+			<Fields>
+				<AxTableIndexField>
+					<DataField>Name</DataField>
+				</AxTableIndexField>
+				<AxTableIndexField>
+					<DataField>Version</DataField>
+				</AxTableIndexField>
+				<AxTableIndexField>
+					<DataField>FromDate</DataField>
+				</AxTableIndexField>
+				<AxTableIndexField>
+					<DataField>ToDate</DataField>
+				</AxTableIndexField>
+			</Fields>
+		</AxTableIndex>
+	</Indexes>
+	<Mappings />
+	<Relations />
+	<StateMachines />
+</AxTable>

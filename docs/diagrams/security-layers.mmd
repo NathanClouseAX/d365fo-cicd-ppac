@@ -1,0 +1,49 @@
+---
+title: Security & Governance - Defense in Depth
+---
+flowchart TD
+    CODE[Code in release/* branch]
+
+    subgraph "Layer 1: Pipeline Triggers"
+        TRIGGER{Branch filter<br/>release/* only}
+    end
+
+    subgraph "Layer 2: Pipeline Chain"
+        CHAIN{deploy.yml DM<br/>must succeed}
+    end
+
+    subgraph "Layer 3: Environment Approvals"
+        ENV_APPROVE{Human approval<br/>on ADO Environment}
+    end
+
+    subgraph "Layer 4: Service Connection"
+        CONN_APPROVE{Approval on<br/>service connection}
+        CONN_BRANCH{Branch control<br/>refs/heads/release/*}
+        CONN_HOURS{Business hours<br/>check}
+    end
+
+    subgraph "Result"
+        DEPLOY[Credential issued<br/>Deployment proceeds]
+    end
+
+    CODE --> TRIGGER
+    TRIGGER -->|pass| CHAIN
+    TRIGGER -->|fail: wrong branch| BLOCKED1[Blocked]
+    CHAIN -->|pass| ENV_APPROVE
+    CHAIN -->|fail: DM not passed| BLOCKED2[Blocked]
+    ENV_APPROVE -->|approved| CONN_APPROVE
+    ENV_APPROVE -->|rejected| BLOCKED3[Blocked]
+    CONN_APPROVE -->|approved| CONN_BRANCH
+    CONN_APPROVE -->|rejected| BLOCKED4[Blocked]
+    CONN_BRANCH -->|pass| CONN_HOURS
+    CONN_BRANCH -->|fail: wrong branch| BLOCKED5[Blocked]
+    CONN_HOURS -->|in window| DEPLOY
+    CONN_HOURS -->|outside hours| BLOCKED6[Queued until window]
+
+    style DEPLOY fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style BLOCKED1 fill:#fce4ec,stroke:#f44336
+    style BLOCKED2 fill:#fce4ec,stroke:#f44336
+    style BLOCKED3 fill:#fce4ec,stroke:#f44336
+    style BLOCKED4 fill:#fce4ec,stroke:#f44336
+    style BLOCKED5 fill:#fce4ec,stroke:#f44336
+    style BLOCKED6 fill:#fff3e0,stroke:#ff9800

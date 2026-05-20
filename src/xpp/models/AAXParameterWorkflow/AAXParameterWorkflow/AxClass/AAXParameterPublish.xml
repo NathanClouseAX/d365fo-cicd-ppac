@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXParameterPublish</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// Entry point for the Publish action. Dispatches to the appropriate type-specific
+/// publishing class which writes versioned values back into the live parameter tables.
+/// Called both from the action menu item and automatically via the SystemParameters::find() extension.
+/// </summary>
+internal final class AAXParameterPublish
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>main</Name>
+				<Source><![CDATA[
+    public static void main(Args _args)
+    {
+        AAXParameterPublish_SystemParameters AAXParameterPublish_SystemParameters = new AAXParameterPublish_SystemParameters();
+
+        AAXParameterPublish_SystemParameters.run(_args.record());
+
+        // Refresh the calling form so published changes are reflected
+        FormDataSource fds = FormDataUtil::getFormDataSource(_args.record());
+        if(fds)
+        {
+            fds.research(true);
+        }
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

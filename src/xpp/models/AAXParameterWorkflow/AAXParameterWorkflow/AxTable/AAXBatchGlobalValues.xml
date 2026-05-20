@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxTable xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXBatchGlobalValues</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+using Microsoft.Dynamics.ApplicationPlatform.XppServices.Instrumentation;
+
+public class AAXBatchGlobalValues extends common
+{
+    #ApplicationPlatformFlights
+    #BatchProcessing
+
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>find</Name>
+				<Source><![CDATA[
+    static AAXBatchGlobalValues find(RecId _AAXSystemParametersVersionRecId, boolean _forUpdate = false)
+    {
+
+        AAXBatchGlobalValues param;
+        param.selectForUpdate(_forUpdate);
+
+        select firstonly param
+        where param.AAXSystemParametersVersion == _AAXSystemParametersVersionRecId;
+
+        return param;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>insert</Name>
+				<Source><![CDATA[
+    void insert()
+    {
+        super();
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>createDefault</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Snapshots the BatchGlobal SingleScheduler entry values into a version value record.
+    /// Uses the same lookup pattern as BatchRunSingleScheduler to find the correct row.
+    /// Idempotent: skips if already exists.
+    /// </summary>
+    /// <param name = "_AAXSystemParametersVersionRecId">RecId of the parent version</param>
+    public static void createDefault(RecId _AAXSystemParametersVersionRecId)
+    {
+        AAXBatchGlobalValues AAXBatchGlobalValues;
+        BatchGlobal BatchGlobalValues;
+
+        // Match the lookup used by BatchRunSingleScheduler.getSingleSchedulerBatchGlobalEntry
+        str SingleScheduler = "SingleScheduler";
+        select firstonly pessimisticlock * from BatchGlobalValues where BatchGlobalValues.Name == SingleScheduler;
+
+        if(!AAXBatchGlobalValues::exists(_AAXSystemParametersVersionRecId))
+        {
+            AAXBatchGlobalValues.Name = BatchGlobalValues.Name;
+            AAXBatchGlobalValues.ServerId = BatchGlobalValues.ServerId;
+            AAXBatchGlobalValues.SessionIdx = BatchGlobalValues.SessionIdx;
+            AAXBatchGlobalValues.LastProcFinishedJobs = BatchGlobalValues.LastProcFinishedJobs;
+            AAXBatchGlobalValues.AAXSystemParametersVersion = _AAXSystemParametersVersionRecId;
+            AAXBatchGlobalValues.BatchReservedCapacityLevel = BatchGlobalValues.BatchReservedCapacityLevel;
+            AAXBatchGlobalValues.insert();
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>exists</Name>
+				<Source><![CDATA[
+    /// <summary>
+    ///
+    /// </summary>
+    public static boolean exists(RecId _AAXSystemParametersVersionRecId)
+    {
+        return AAXBatchGlobalValues::find(_AAXSystemParametersVersionRecId).RecId != 0;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+	<DeveloperDocumentation>@SYS125336</DeveloperDocumentation>
+	<EntityRelationshipType>Relationship</EntityRelationshipType>
+	<TableGroup>Transaction</TableGroup>
+	<ClusteredIndex>AAXSystemParametersVersion</ClusteredIndex>
+	<CreateRecIdIndex>No</CreateRecIdIndex>
+	<Modules>SystemAdministration</Modules>
+	<PrimaryIndex>AAXSystemParametersVersion</PrimaryIndex>
+	<SaveDataPerCompany>No</SaveDataPerCompany>
+	<SaveDataPerPartition>No</SaveDataPerPartition>
+	<SystemTable>Yes</SystemTable>
+	<DeleteActions />
+	<FieldGroups>
+		<AxTableFieldGroup>
+			<Name>AutoReport</Name>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>Name</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoLookup</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoIdentification</Name>
+			<AutoPopulate>Yes</AutoPopulate>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoSummary</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoBrowse</Name>
+			<Fields />
+		</AxTableFieldGroup>
+	</FieldGroups>
+	<Fields>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldUtcDateTime">
+			<Name>LastProcFinishedJobs</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>UTCTimestamp</ExtendedDataType>
+			<Visible>No</Visible>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>Name</Name>
+			<AllowEdit>No</AllowEdit>
+			<AssetClassification>End User Identifiable Information (EUII)</AssetClassification>
+			<ExtendedDataType>BatchName</ExtendedDataType>
+			<Mandatory>Yes</Mandatory>
+			<Visible>No</Visible>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>SessionIdx</Name>
+			<AssetClassification>System Metadata</AssetClassification>
+			<ExtendedDataType>SessionId</ExtendedDataType>
+			<Visible>No</Visible>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>ServerId</Name>
+			<AssetClassification>System Metadata</AssetClassification>
+			<ExtendedDataType>ServerId</ExtendedDataType>
+			<Visible>No</Visible>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>BatchReservedCapacityLevel</Name>
+			<FeatureClass>BatchPriorityBasedSchedulingFeature</FeatureClass>
+			<EnumType>BatchReservedCapacityLevel</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt64">
+			<Name>AAXSystemParametersVersion</Name>
+		</AxTableField>
+	</Fields>
+	<FullTextIndexes />
+	<Indexes>
+		<AxTableIndex>
+			<Name>AAXSystemParametersVersion</Name>
+			<AlternateKey>Yes</AlternateKey>
+			<Fields>
+				<AxTableIndexField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableIndexField>
+			</Fields>
+		</AxTableIndex>
+	</Indexes>
+	<Mappings />
+	<Relations>
+		<AxTableRelation>
+			<Name>SysServerConfig</Name>
+			<Cardinality>ZeroMore</Cardinality>
+			<EntityRelationshipRole>@SYS125373</EntityRelationshipRole>
+			<RelatedTable>SysServerConfig</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>ServerId</Name>
+					<SourceEDT>ServerId</SourceEDT>
+					<Field>ServerId</Field>
+					<RelatedField>ServerId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+		<AxTableRelation>
+			<Name>AAXSystemParametersVersion</Name>
+			<Cardinality>ExactlyOne</Cardinality>
+			<OnDelete>Cascade</OnDelete>
+			<RelatedTable>AAXSystemParametersVersion</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>AAXSystemParametersVersion</Name>
+					<Field>AAXSystemParametersVersion</Field>
+					<RelatedField>RecId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+	</Relations>
+	<StateMachines />
+</AxTable>

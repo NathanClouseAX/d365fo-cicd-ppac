@@ -1,0 +1,145 @@
+# copy-environment.yml
+# Standalone environment copy: copies F&O database from source → target environment.
+# Accepts environment GUID directly, or resolves by display name.
+trigger: none
+pr: none
+
+name: copy-environment-$(Date:yyyyMMdd).$(Rev:r)
+
+parameters:
+  - name: sourceEnvironmentId
+    displayName: 'Source environment ID (GUID)'
+    type: string
+    default: ''
+
+  - name: targetEnvironmentId
+    displayName: 'Target environment ID (GUID — leave blank to resolve by display name)'
+    type: string
+    default: ''
+
+  - name: targetEnvironmentDisplayName
+    displayName: 'Target environment display name (used when target ID is blank)'
+    type: string
+    default: ''
+
+  - name: copyType
+    displayName: 'Copy type'
+    type: string
+    default: 'MinimalCopy'
+    values:
+      - FullCopy
+      - MinimalCopy
+
+  - name: skipAuditData
+    displayName: 'Skip audit data'
+    type: boolean
+    default: true
+
+  - name: waitUntilFinished
+    displayName: 'Wait until finished'
+    type: boolean
+    default: false
+
+  - name: timeoutInMinutes
+    displayName: 'Timeout (minutes)'
+    type: number
+    default: 60
+
+  - name: endpoint
+    displayName: 'Power Platform endpoint'
+    type: string
+    default: 'prod'
+    values:
+      - prod
+      - preview
+      - gcc
+      - usgov
+      - usgovhigh
+      - dod
+      - china
+
+pool:
+  vmImage: windows-2022
+
+variables:
+  - group: PowerPlatform-Auth
+
+stages:
+- stage: Copy
+  displayName: 'Copy environment'
+  jobs:
+  - job: CopyEnv
+    displayName: 'Copy F&O environment'
+    steps:
+      - checkout: none
+
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $sourceEnvId   = '${{ parameters.sourceEnvironmentId }}'
+          $targetEnvId   = '${{ parameters.targetEnvironmentId }}'
+          $displayName   = '${{ parameters.targetEnvironmentDisplayName }}'
+
+          if ([string]::IsNullOrWhiteSpace($sourceEnvId)) {
+            throw "sourceEnvironmentId is required."
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($targetEnvId)) {
+            Write-Host "Target environment ID provided directly: $targetEnvId"
+            Write-Host "##vso[task.setvariable variable=TargetEnvironmentId]$targetEnvId"
+            Write-Host "##vso[task.setvariable variable=TargetEnvironmentDisplayName]$displayName"
+            exit 0
+          }
+
+          if ([string]::IsNullOrWhiteSpace($displayName)) {
+            throw "Either targetEnvironmentId or targetEnvironmentDisplayName is required."
+          }
+
+          $tenantId      = "$(PP_TENANT_ID)"
+          $applicationId = "$(PP_APPLICATION_ID)"
+          $clientSecret  = "$(PP_CLIENT_SECRET)"
+          $endpoint      = "${{ parameters.endpoint }}"
+
+          if ([string]::IsNullOrWhiteSpace($clientSecret)) {
+            throw "PP_CLIENT_SECRET is empty. Check variable group permissions."
+          }
+
+          Write-Host "Installing PowerApps Administration module..."
+          Install-Module Microsoft.PowerApps.Administration.PowerShell -Force -Scope CurrentUser -AllowClobber
+
+          Write-Host "Authenticating to Power Platform endpoint '$endpoint'..."
+          Add-PowerAppsAccount `
+            -Endpoint $endpoint `
+            -TenantID $tenantId `
+            -ApplicationId $applicationId `
+            -ClientSecret $clientSecret
+
+          Write-Host "Looking for environment with DisplayName='$displayName'..."
+          $env = Get-AdminPowerAppEnvironment |
+            Where-Object { $_.DisplayName -eq $displayName } |
+            Select-Object -First 1
+
+          if (-not $env -or -not $env.EnvironmentName) {
+            throw "Environment not found with DisplayName='$displayName'."
+          }
+
+          $resolved = $env.EnvironmentName
+          Write-Host "Resolved target environment GUID: $resolved"
+          Write-Host "##vso[task.setvariable variable=TargetEnvironmentId]$resolved"
+          Write-Host "##vso[task.setvariable variable=TargetEnvironmentDisplayName]$displayName"
+        displayName: 'Resolve target environment'
+
+      - template: templates/copy-finops-environment.yml
+        parameters:
+          tenantId: '$(PP_TENANT_ID)'
+          applicationId: '$(PP_APPLICATION_ID)'
+          clientSecret: '$(PP_CLIENT_SECRET)'
+          endpoint: ${{ parameters.endpoint }}
+          sourceEnvironmentId: ${{ parameters.sourceEnvironmentId }}
+          targetEnvironmentId: '$(TargetEnvironmentId)'
+          targetEnvironmentDisplayName: '$(TargetEnvironmentDisplayName)'
+          copyType: ${{ parameters.copyType }}
+          skipAuditData: ${{ parameters.skipAuditData }}
+          waitUntilFinished: ${{ parameters.waitUntilFinished }}
+          timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
+          targetSecurityGroupId: ''

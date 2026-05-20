@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>AAXIntegration</RootNamespace>
+    <AssemblyName>AAXIntegration</AssemblyName>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!--
+    This assembly is referenced by X++ modules via assembly reference.
+    The output DLL is included in the deployable package alongside X++ binaries.
+
+    To reference from X++:
+    1. Add the DLL as a reference in your X++ model's descriptor
+    2. Use [ExternalDotNet] attribute or direct CLR interop calls
+  -->
+
+</Project>

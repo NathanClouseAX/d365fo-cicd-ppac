@@ -1,0 +1,67 @@
+---
+title: Pipeline Architecture
+---
+flowchart TD
+    subgraph Triggers
+        PR[Pull Request to main]
+        PUSH_F[Push: feature/*, bug/*, hotfix/*]
+        PUSH_R[Push: release/*]
+        PUSH_M[Push: main]
+    end
+
+    subgraph "PR Validation (required check)"
+        PRV_COMPILE[Stage 1: Compile X++<br/>build-xpp.yml]
+        PRV_INTEG[Stage 2: Integration Test<br/>Provision → 3h wait → Copy DB<br/>→ Deploy → DB Sync → Test → Teardown]
+    end
+
+    subgraph Build
+        BUILD[build.yml<br/>Compile + Package + Publish Artifact]
+    end
+
+    subgraph Environment Provisioning
+        PROV[provision-environment.yml<br/>New-AdminPowerAppEnvironment<br/>+ branch tag in description]
+        COPY_POST[post-provision-copy.yml<br/>Wait 4h + Match governance + Copy DB]
+    end
+
+    subgraph "Environment Cleanup (daily schedule)"
+        CLEANUP_P[cleanup-environments.yml<br/>Delete orphaned envs]
+    end
+
+    subgraph "Deploy Pipeline (release/* only)"
+        UAT[Deploy to UAT<br/>deploy-finops-package.yml]
+        DM[Deploy to DM<br/>deploy-finops-package.yml]
+    end
+
+    subgraph "Release Pipeline (after DM succeeds)"
+        GOLD[Deploy to GOLD<br/>deploy-finops-package.yml]
+        PROD[Deploy to PROD<br/>deploy-finops-package.yml]
+    end
+
+    PR --> PRV_COMPILE
+    PRV_COMPILE --> PRV_INTEG
+    PRV_INTEG -->|pass| MERGE[Merge to main]
+
+    PUSH_F --> BUILD
+    PUSH_F --> PROV
+    PUSH_R --> BUILD
+    PUSH_M --> BUILD
+
+    PROV --> COPY_POST
+    PROV -.->|branch deleted| CLEANUP_P
+
+    BUILD -->|release/* only| UAT
+    UAT -->|succeeded| DM
+    DM -->|succeeded| GOLD
+    GOLD -->|approval + succeeded| PROD
+
+    style PRV_COMPILE fill:#e3f2fd,stroke:#2196f3
+    style PRV_INTEG fill:#e3f2fd,stroke:#2196f3
+    style MERGE fill:#e8f5e9,stroke:#4caf50
+    style BUILD fill:#e8f5e9,stroke:#4caf50
+    style UAT fill:#fff3e0,stroke:#ff9800
+    style DM fill:#fff3e0,stroke:#ff9800
+    style GOLD fill:#fce4ec,stroke:#f44336
+    style PROD fill:#fce4ec,stroke:#f44336
+    style PROV fill:#f3e5f5,stroke:#9c27b0
+    style COPY_POST fill:#f3e5f5,stroke:#9c27b0
+    style CLEANUP_P fill:#fce4ec,stroke:#f44336

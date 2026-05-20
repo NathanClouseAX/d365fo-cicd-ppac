@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxView xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXPurchLineOpen</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+public class AAXPurchLineOpen extends common
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>expectedDateDefinition</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Defines a computed column for the expected date of delivery.
+    /// </summary>
+    /// <returns>
+    /// Returns the confirmed delivery date of purchase order line if there is one defined; otherwise,
+    /// it returns the requested delivery date.
+    /// </returns>
+    public static str expectedDateDefinition()
+    {
+        var viewName              = tableStr(AAXPurchLineOpen);
+        var deliveryDate          = SysComputedColumn::returnField(viewName, tableStr(PurchLine), fieldStr(PurchLine, DeliveryDate));
+        var confirmedDeliveryDate = SysComputedColumn::returnField(viewName, tableStr(PurchLine), fieldStr(PurchLine, ConfirmedDlv));
+
+        var isDeliveryDateConfirmed = SysComputedColumn::notEqualExpression(
+                SysComputedColumn::comparisonField(viewName, tableStr(PurchLine), fieldStr(PurchLine, ConfirmedDlv)),
+                SysComputedColumn::comparisonLiteral(dateNull()));
+
+        return SysComputedColumn::if(isDeliveryDateConfirmed, confirmedDeliveryDate, deliveryDate);
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>itemName</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Gets order line item name according its dimension
+    /// </summary>
+    /// <returns>
+    /// An active record order line item name
+    /// </returns>
+    display PurchLineShowItemName itemName()
+    {
+        return InventTable::find(this.ItemId)
+            .itemName(InventDim::find(this.InventDimId));
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>pdsCWUnitId</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Gets the catch weight unit for the item.
+    /// </summary>
+    /// <returns>
+    /// The catch weight unit for the item.
+    /// </returns>
+    public display PdsCWUnitId pdsCWUnitId()
+    {
+        return PdsCatchWeight::cwUnitId(this.ItemId);
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+	<SubscriberAccessLevel>
+		<Read>Allow</Read>
+	</SubscriberAccessLevel>
+	<Query>AAXPurchLineOpen</Query>
+	<FieldGroups>
+		<AxTableFieldGroup>
+			<Name>AutoReport</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoLookup</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoIdentification</Name>
+			<AutoPopulate>Yes</AutoPopulate>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoSummary</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoBrowse</Name>
+			<Fields />
+		</AxTableFieldGroup>
+	</FieldGroups>
+	<Fields>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>PurchId</Name>
+			<DataField>PurchId</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>InventTransId</Name>
+			<DataField>InventTransId</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>InventDimId</Name>
+			<DataField>InventDimId</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>ConfirmedDlv</Name>
+			<DataField>ConfirmedDlv</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>ProjId</Name>
+			<DataField>ProjId</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>VendAccount</Name>
+			<DataField>VendAccount</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>ItemId</Name>
+			<DataField>ItemId</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>ProcurementCategory</Name>
+			<DataField>ProcurementCategory</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>PurchUnit</Name>
+			<DataField>PurchUnit</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>PurchQty</Name>
+			<DataField>PurchQty</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>RemainPurchPhysical</Name>
+			<DataField>RemainPurchPhysical</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>LineNumber</Name>
+			<DataField>LineNumber</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>PdsCWQty</Name>
+			<DataField>PdsCWQty</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>PdsCWRemainInventPhysical</Name>
+			<DataField>PdsCWRemainInventPhysical</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>PurchName</Name>
+			<DataField>PurchName</DataField>
+			<DataSource>PurchTable</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldComputedDate">
+			<Name>ExpectedDate</Name>
+			<Label>@GLS180241</Label>
+			<ViewMethod>expectedDateDefinition</ViewMethod>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>DeliveryDate</Name>
+			<DataField>DeliveryDate</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+		<AxViewField xmlns=""
+			i:type="AxViewFieldBound">
+			<Name>PurchLineRecId</Name>
+			<DataField>RecId</DataField>
+			<DataSource>PurchLine</DataSource>
+		</AxViewField>
+	</Fields>
+	<Indexes />
+	<Mappings />
+	<Relations />
+	<StateMachines />
+	<ViewMetadata>
+		<Name>Metadata</Name>
+		<SourceCode>
+			<Methods />
+		</SourceCode>
+		<DataSources />
+	</ViewMetadata>
+</AxView>

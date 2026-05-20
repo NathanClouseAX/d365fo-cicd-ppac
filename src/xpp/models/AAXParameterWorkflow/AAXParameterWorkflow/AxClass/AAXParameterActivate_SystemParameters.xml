@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXParameterActivate_SystemParameters</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// activate system parameter version
+/// </summary>
+internal final class AAXParameterActivate_SystemParameters
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>run</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Marks a system parameter version as Active. The actual publishing of values
+    /// to the live parameter tables happens lazily via the SystemParameters::find()
+    /// chain-of-command extension when it detects the effective version has changed.
+    /// </summary>
+    /// <param name = "_AAXSystemParametersVersion">The version record to activate</param>
+    public void run(AAXSystemParametersVersion _AAXSystemParametersVersion)
+    {
+        // Re-select with forUpdate to get a lock before modifying
+        AAXSystemParametersVersion AAXSystemParametersVersionNew = AAXSystemParametersVersion::find(_AAXSystemParametersVersion.RecId, true);
+
+        ttsbegin;
+
+        AAXSystemParametersVersionNew.Status = AAXParameterStatus::Active;
+        AAXSystemParametersVersionNew.update();
+
+        ttscommit;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

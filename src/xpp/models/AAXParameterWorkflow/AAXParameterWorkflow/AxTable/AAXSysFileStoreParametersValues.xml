@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxTable xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXSysFileStoreParametersValues</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+public class AAXSysFileStoreParametersValues extends common
+{
+
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>find</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Finds the specified instance of the <c>SysFileStoreParameters</c> record if it exists; otherwise,
+    /// creates and returns a new record.
+    /// </summary>
+    /// <param name="_forupdate">
+    /// A Boolean value that specifies whether to select the record for update; optional.
+    /// </param>
+    /// <returns>
+    /// The single instance of the record.
+    /// </returns>
+    static AAXSysFileStoreParametersValues find(RecId _AAXSystemParametersVersionRecId,boolean _forupdate = false)
+    {
+        AAXSysFileStoreParametersValues parameter;
+
+        if (_forupdate)
+        {
+            parameter.selectForUpdate(_forupdate);
+        }
+
+        select firstonly RecId from parameter
+            where parameter.AAXSystemParametersVersion == _AAXSystemParametersVersionRecId;
+
+        if (!parameter && !parameter.isTmp())
+        {
+            Company::createParameter(parameter);
+        }
+
+        return parameter;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>createDefault</Name>
+				<Source><![CDATA[
+    public static void createDefault(RecId _AAXSystemParametersVersionRecId)
+    {
+        AAXSysFileStoreParametersValues AAXSysFileStoreParametersValues;
+        SysFileStoreParameters SysFileStoreParameters;
+
+        if(!AAXSysFileStoreParametersValues::exists(_AAXSystemParametersVersionRecId))
+        {
+            SysFileStoreParameters = SysFileStoreParameters::find();
+
+            AAXSysFileStoreParametersValues.AAXSystemParametersVersion = _AAXSystemParametersVersionRecId;
+            AAXSysFileStoreParametersValues.FilePath = SysFileStoreParameters.FilePath;
+            AAXSysFileStoreParametersValues.insert();
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>exists</Name>
+				<Source><![CDATA[
+    /// <summary>
+    ///
+    /// </summary>
+    public static boolean exists(RecId _AAXSystemParametersVersionRecId)
+    {
+        return AAXSysFileStoreParametersValues::find(_AAXSystemParametersVersionRecId).RecId != 0;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+	<DeveloperDocumentation>@SYS326107</DeveloperDocumentation>
+	<Label>@SYS326106</Label>
+	<OperationalDomain>Shared</OperationalDomain>
+	<SubscriberAccessLevel>
+		<Read>Allow</Read>
+	</SubscriberAccessLevel>
+	<TableGroup>Parameter</TableGroup>
+	<CacheLookup>Found</CacheLookup>
+	<Modules>SystemAdministration</Modules>
+	<SaveDataPerCompany>No</SaveDataPerCompany>
+	<DeleteActions />
+	<FieldGroups>
+		<AxTableFieldGroup>
+			<Name>AutoReport</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoLookup</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoIdentification</Name>
+			<AutoPopulate>Yes</AutoPopulate>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoSummary</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoBrowse</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>General</Name>
+			<Label>@SYS2952</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>FilePath</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+	</FieldGroups>
+	<Fields>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>FilePath</Name>
+			<AssetClassification>System Metadata</AssetClassification>
+			<ExtendedDataType>FilePath</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt64">
+			<Name>AAXSystemParametersVersion</Name>
+		</AxTableField>
+	</Fields>
+	<FullTextIndexes />
+	<Indexes>
+		<AxTableIndex>
+			<Name>AAXSystemParametersVersionIdx</Name>
+			<Fields>
+				<AxTableIndexField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableIndexField>
+			</Fields>
+		</AxTableIndex>
+	</Indexes>
+	<Mappings />
+	<Relations>
+		<AxTableRelation>
+			<Name>AAXSystemParametersVersion</Name>
+			<Cardinality>ExactlyOne</Cardinality>
+			<OnDelete>Cascade</OnDelete>
+			<RelatedTable>AAXSystemParametersVersion</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>AAXSystemParametersVersion</Name>
+					<Field>AAXSystemParametersVersion</Field>
+					<RelatedField>RecId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+	</Relations>
+	<StateMachines />
+</AxTable>

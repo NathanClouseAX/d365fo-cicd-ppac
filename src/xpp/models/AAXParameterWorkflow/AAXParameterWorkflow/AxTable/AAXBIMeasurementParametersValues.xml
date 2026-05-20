@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxTable xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXBIMeasurementParametersValues</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+public class AAXBIMeasurementParametersValues extends common
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>find</Name>
+				<Source><![CDATA[
+    static AAXBIMeasurementParametersValues find(RecId _AAXSystemParametersVersionRecId, boolean _forUpdate = false)
+    {
+
+        AAXBIMeasurementParametersValues param;
+        param.selectForUpdate(_forUpdate);
+
+        select firstonly param
+        where param.AAXSystemParametersVersion == _AAXSystemParametersVersionRecId;
+
+        if (!param)
+        {
+
+                Company::createParameter(param);
+        }
+
+        return param;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>insert</Name>
+				<Source><![CDATA[
+    void insert()
+    {
+        Global::handleEncryptedTablePreInsert(this);
+        super();
+        Global::handleEncryptedTablePostInsert(this);
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>createDefault</Name>
+				<Source><![CDATA[
+    public static void createDefault(RecId _AAXSystemParametersVersionRecId)
+    {
+        AAXBIMeasurementParametersValues AAXBIMeasurementParametersValues;
+        BIMeasurementParameters BIMeasurementParameters;
+
+        if(!AAXBIMeasurementParametersValues::exists(_AAXSystemParametersVersionRecId))
+        {
+            BIMeasurementParameters = BIMeasurementParameters::find();
+
+            AAXBIMeasurementParametersValues.AAXSystemParametersVersion = _AAXSystemParametersVersionRecId;
+            AAXBIMeasurementParametersValues.AzureAppId = BIMeasurementParameters.AzureAppId;
+            AAXBIMeasurementParametersValues.AzureAppSecret = BIMeasurementParameters.AzureAppSecret;
+            AAXBIMeasurementParametersValues.CDSAEnabled = BIMeasurementParameters.CDSAEnabled;
+            AAXBIMeasurementParametersValues.IncrementalEnabled = BIMeasurementParameters.IncrementalEnabled;
+            AAXBIMeasurementParametersValues.KeyVaultDnsName = BIMeasurementParameters.KeyVaultDnsName;
+            AAXBIMeasurementParametersValues.KeyVaultSecretName = BIMeasurementParameters.KeyVaultSecretName;
+            AAXBIMeasurementParametersValues.UseNewEntityStoreForm = BIMeasurementParameters.UseNewEntityStoreForm;
+            AAXBIMeasurementParametersValues.insert();
+
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>exists</Name>
+				<Source><![CDATA[
+    /// <summary>
+    ///
+    /// </summary>
+    public static boolean exists(RecId _AAXSystemParametersVersionRecId)
+    {
+        return AAXBIMeasurementParametersValues::find(_AAXSystemParametersVersionRecId).RecId != 0;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+	<Label>@BI:BIMeasurementParametersTable</Label>
+	<SubscriberAccessLevel>
+		<Read>Allow</Read>
+	</SubscriberAccessLevel>
+	<TableGroup>Parameter</TableGroup>
+	<CacheLookup>Found</CacheLookup>
+	<ClusteredIndex>AAXSystemParametersVersionIdx</ClusteredIndex>
+	<CreateRecIdIndex>No</CreateRecIdIndex>
+	<Modules>SystemAdministration</Modules>
+	<PrimaryIndex>AAXSystemParametersVersionIdx</PrimaryIndex>
+	<SaveDataPerCompany>No</SaveDataPerCompany>
+	<DeleteActions />
+	<FieldGroups>
+		<AxTableFieldGroup>
+			<Name>AutoReport</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoLookup</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoIdentification</Name>
+			<AutoPopulate>Yes</AutoPopulate>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoSummary</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoBrowse</Name>
+			<Fields />
+		</AxTableFieldGroup>
+	</FieldGroups>
+	<Fields>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>CDSAEnabled</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<Label>@BI:CDSAEnabled</Label>
+			<EnumType>NoYes</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>KeyVaultDnsName</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<Label>@BI:CDSAKeyVaultDnsName</Label>
+			<StringSize>255</StringSize>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>KeyVaultSecretName</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<Label>@BI:CDSAKeyVaultSecretName</Label>
+			<StringSize>127</StringSize>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>AzureAppId</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<Label>@BI:CDSAApplicationId</Label>
+			<StringSize>36</StringSize>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>AzureAppSecret</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>EncryptedString</ExtendedDataType>
+			<Label>@BI:CDSAApplicationSecret</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>UseNewEntityStoreForm</Name>
+			<AssetClassification>System Metadata</AssetClassification>
+			<Label>@BI:BIEnableNewEntityStoreForm</Label>
+			<Visible>No</Visible>
+			<EnumType>NoYes</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>IncrementalEnabled</Name>
+			<EnumType>NoYes</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt64">
+			<Name>AAXSystemParametersVersion</Name>
+		</AxTableField>
+	</Fields>
+	<FullTextIndexes />
+	<Indexes>
+		<AxTableIndex>
+			<Name>AAXSystemParametersVersionIdx</Name>
+			<AlternateKey>Yes</AlternateKey>
+			<Fields>
+				<AxTableIndexField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableIndexField>
+			</Fields>
+		</AxTableIndex>
+	</Indexes>
+	<Mappings />
+	<Relations>
+		<AxTableRelation>
+			<Name>AAXSystemParametersVersion</Name>
+			<Cardinality>ExactlyOne</Cardinality>
+			<OnDelete>Cascade</OnDelete>
+			<RelatedTable>AAXSystemParametersVersion</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>AAXSystemParametersVersion</Name>
+					<Field>AAXSystemParametersVersion</Field>
+					<RelatedField>RecId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+	</Relations>
+	<StateMachines />
+</AxTable>

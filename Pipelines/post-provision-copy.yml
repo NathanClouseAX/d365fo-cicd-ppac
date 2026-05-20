@@ -1,0 +1,308 @@
+# post-provision-copy.yml
+# Triggered automatically after provision-environment.yml completes.
+# Waits 240 minutes (server delay), resolves target env by display name, then copies F&O DB from source → target.
+
+trigger: none
+pr: none
+
+name: postprovision-copy-$(Date:yyyyMMdd).$(Rev:r)
+
+resources:
+  pipelines:
+    - pipeline: provisionRun
+      source: Create Environment   # must exactly match the Azure DevOps pipeline name
+      trigger: true
+
+stages:
+- stage: WaitForProvision
+  displayName: "Wait 4 hours for environment provisioning"
+  jobs:
+  - job: Delay
+    displayName: "Delay 240 minutes (server pool — zero agent cost)"
+    pool: server
+    timeoutInMinutes: 255
+    steps:
+    - task: Delay@1
+      inputs:
+        delayForMinutes: 240
+
+- stage: CopyDatabase
+  displayName: "Copy FinOps database from source -> created target"
+  dependsOn: WaitForProvision
+  jobs:
+  - job: CopyEnv
+    displayName: "Resolve EnvB by name, then Copy-PowerAppEnvironment"
+    pool:
+      vmImage: windows-2022
+    variables:
+      - group: PowerPlatform-Auth
+      - group: FinOps-Options
+    steps:
+      - checkout: self
+
+      # Download artifact "env" from the triggering Create Environment pipeline run
+      - download: provisionRun
+        artifact: env
+        displayName: "Download env artifact from Create Environment pipeline"
+
+      # Read env.json and set target display name
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $path = "$(Pipeline.Workspace)/provisionRun/env/env.json"
+          Write-Host "Reading: $path"
+          $info = Get-Content $path -Raw | ConvertFrom-Json
+
+          if (-not $info.environmentDisplayName) {
+            throw "env.json missing environmentDisplayName"
+          }
+
+          $displayName = $info.environmentDisplayName
+
+          Write-Host "Target environment display name: $displayName"
+          if ($info.operationLocation) { Write-Host "Operation Location: $($info.operationLocation)" }
+
+          Write-Host "##vso[task.setvariable variable=TargetEnvironmentDisplayName]$displayName"
+        displayName: "Load env.json and set target display name"
+
+      # Validate source env GUID from variable group FinOps-Options
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $sourceEnvId = "$(database-source-environment-guid)"
+          if ([string]::IsNullOrWhiteSpace($sourceEnvId)) {
+            throw "Variable group FinOps-Options is missing 'database-source-environment-guid' (source environment GUID)."
+          }
+
+          Write-Host "Source environment GUID provided (length): $($sourceEnvId.Length)"
+          Write-Host "##vso[task.setvariable variable=SourceEnvironmentId]$sourceEnvId"
+        displayName: "Validate source environment GUID (EnvA) from variable group"
+
+      # Authenticate + poll until target env exists, then capture its GUID (EnvironmentName)
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $tenantId      = "$(PP_TENANT_ID)"
+          $applicationId = "$(PP_APPLICATION_ID)"
+          $clientSecret  = "$(PP_CLIENT_SECRET)"
+          $endpoint      = "prod"  # change if needed
+          $displayName   = "$(TargetEnvironmentDisplayName)"
+
+          if ([string]::IsNullOrWhiteSpace($clientSecret)) {
+            throw "PP_CLIENT_SECRET is empty. Check variable group permissions."
+          }
+          if ([string]::IsNullOrWhiteSpace($displayName)) {
+            throw "TargetEnvironmentDisplayName is empty."
+          }
+
+          Write-Host "Installing PowerApps Administration module..."
+          Install-Module Microsoft.PowerApps.Administration.PowerShell -Force -Scope CurrentUser -AllowClobber
+
+          Write-Host "Authenticating to Power Platform endpoint '$endpoint'..."
+          Add-PowerAppsAccount `
+            -Endpoint $endpoint `
+            -TenantID $tenantId `
+            -ApplicationId $applicationId `
+            -ClientSecret $clientSecret
+
+          $sleepSeconds = 60
+          $maxMinutes   = 180
+          $maxLoops     = [math]::Ceiling(($maxMinutes * 60) / $sleepSeconds)
+
+          $targetEnvId = $null
+
+          for ($i = 1; $i -le $maxLoops; $i++) {
+            Write-Host "Polling ($i/$maxLoops): looking for env with DisplayName='$displayName'..."
+
+            $env = Get-AdminPowerAppEnvironment |
+              Where-Object { $_.DisplayName -eq $displayName } |
+              Select-Object -First 1
+
+            if ($env -and $env.EnvironmentName) {
+              $targetEnvId = $env.EnvironmentName
+              Write-Host "Found target environment GUID: $targetEnvId"
+              break
+            }
+
+            Start-Sleep -Seconds $sleepSeconds
+          }
+
+          if (-not $targetEnvId) {
+            throw "Target environment not found after $maxMinutes minutes. DisplayName='$displayName'."
+          }
+
+          Write-Host "##vso[task.setvariable variable=TargetEnvironmentId]$targetEnvId"
+        displayName: "Resolve target environment GUID by display name"
+
+      # Match governance configuration (Managed Environment) from source to target
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $tenantId      = "$(PP_TENANT_ID)"
+          $applicationId = "$(PP_APPLICATION_ID)"
+          $clientSecret  = "$(PP_CLIENT_SECRET)"
+          $sourceEnvId   = "$(SourceEnvironmentId)"
+          $targetEnvId   = "$(TargetEnvironmentId)"
+
+          Install-Module Microsoft.PowerApps.Administration.PowerShell -Force -Scope CurrentUser -AllowClobber
+          Add-PowerAppsAccount -Endpoint prod -TenantID $tenantId -ApplicationId $applicationId -ClientSecret $clientSecret
+
+          $sourceEnv = Get-AdminPowerAppEnvironment -EnvironmentName $sourceEnvId
+          $targetEnv = Get-AdminPowerAppEnvironment -EnvironmentName $targetEnvId
+
+          $sourceProtection = $sourceEnv.Internal.properties.governanceConfiguration.protectionLevel
+          $targetProtection = $targetEnv.Internal.properties.governanceConfiguration.protectionLevel
+
+          Write-Host "Source governance: $sourceProtection"
+          Write-Host "Target governance: $targetProtection"
+
+          if ($sourceProtection -eq $targetProtection) {
+            Write-Host "Governance configuration already matches — no changes needed."
+          } else {
+            Write-Host "Governance mismatch detected. Aligning target to source..."
+            if ($sourceProtection -eq "Enhanced") {
+              Write-Host "Enabling Managed Environment on target..."
+              Enable-AdminPowerAppEnvironmentManagedEnvironment -EnvironmentName $targetEnvId
+            } else {
+              Write-Host "Disabling Managed Environment on target..."
+              Disable-AdminPowerAppEnvironmentManagedEnvironment -EnvironmentName $targetEnvId
+            }
+            Start-Sleep -Seconds 30
+            $updated = Get-AdminPowerAppEnvironment -EnvironmentName $targetEnvId
+            Write-Host "Target governance after update: $($updated.Internal.properties.governanceConfiguration.protectionLevel)"
+          }
+        displayName: "Match governance configuration (source → target)"
+
+      # Call your existing copy template (still needs target GUID)
+      - template: templates/copy-finops-environment.yml
+        parameters:
+          tenantId: '$(PP_TENANT_ID)'
+          applicationId: '$(PP_APPLICATION_ID)'
+          clientSecret: '$(PP_CLIENT_SECRET)'
+          endpoint: 'prod'   # change if needed
+
+          sourceEnvironmentId: '$(SourceEnvironmentId)'
+          targetEnvironmentId: '$(TargetEnvironmentId)'
+          targetEnvironmentDisplayName: '$(TargetEnvironmentDisplayName)'
+
+          copyType: 'MinimalCopy'
+          skipAuditData: true
+          waitUntilFinished: false
+          timeoutInMinutes: 60
+
+          # truly optional
+          targetSecurityGroupId: ''
+
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $tenantId      = "$(PP_TENANT_ID)"
+          $applicationId = "$(PP_APPLICATION_ID)"
+          $clientSecret  = "$(PP_CLIENT_SECRET)"
+          $envId         = "$(TargetEnvironmentId)"
+
+          Write-Host "=== Resolve F&O operations URL ==="
+          Write-Host "Target environment GUID: $envId"
+
+          Write-Host "Installing PowerApps Administration module..."
+          Install-Module Microsoft.PowerApps.Administration.PowerShell -Force -Scope CurrentUser -AllowClobber
+
+          Write-Host "Authenticating to Power Platform..."
+          Add-PowerAppsAccount -Endpoint prod -TenantID $tenantId -ApplicationId $applicationId -ClientSecret $clientSecret
+          Write-Host "Authentication successful."
+
+          Write-Host "Fetching environment details..."
+          $env = Get-AdminPowerAppEnvironment -EnvironmentName $envId
+
+          if (-not $env) {
+            Write-Host "##[warning]Get-AdminPowerAppEnvironment returned null for $envId — skipping DMF refresh."
+            Write-Host "##vso[task.setvariable variable=FinOpsUrl;isOutput=true]"
+            exit 0
+          }
+
+          Write-Host "Environment DisplayName: $($env.DisplayName)"
+          Write-Host "Environment State: $($env.Internal.properties.provisioningState)"
+
+          $linkedMeta = $env.Internal.properties.linkedEnvironmentMetadata
+          Write-Host "Linked environment metadata present: $($null -ne $linkedMeta)"
+
+          if ($linkedMeta) {
+            Write-Host "  instanceUrl: $($linkedMeta.instanceUrl)"
+            Write-Host "  domainName:  $($linkedMeta.domainName)"
+            Write-Host "  type:        $($linkedMeta.type)"
+          }
+
+          $opsUrl = $linkedMeta.instanceUrl
+          if ([string]::IsNullOrWhiteSpace($opsUrl)) {
+            $opsUrl = $linkedMeta.domainName
+            if ($opsUrl -and -not $opsUrl.StartsWith("http")) {
+              $opsUrl = "https://${opsUrl}.operations.dynamics.com"
+            }
+            Write-Host "Fell back to domainName-derived URL: $opsUrl"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($opsUrl)) {
+            Write-Host "##[warning]Could not resolve F&O operations URL — skipping DMF refresh."
+            Write-Host "##vso[task.setvariable variable=FinOpsUrl;isOutput=true]"
+            exit 0
+          }
+
+          $opsUrl = $opsUrl.TrimEnd('/')
+          Write-Host "Resolved F&O operations URL: $opsUrl"
+          Write-Host "##vso[task.setvariable variable=FinOpsUrl;isOutput=true]$opsUrl"
+        displayName: "Resolve F&O operations URL"
+        name: resolveUrl
+
+- stage: DmfRefresh
+  displayName: "DMF Entity Refresh on new environment"
+  dependsOn: CopyDatabase
+  condition: succeeded('CopyDatabase')
+  jobs:
+  - job: RefreshEntities
+    displayName: "Invoke InitializeDataManagement"
+    pool:
+      vmImage: windows-2022
+    variables:
+      - group: PowerPlatform-Auth
+      - name: FinOpsUrl
+        value: $[ stageDependencies.CopyDatabase.CopyEnv.outputs['resolveUrl.FinOpsUrl'] ]
+    steps:
+      - checkout: none
+
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $finOpsUrl = "$(FinOpsUrl)"
+          if ([string]::IsNullOrWhiteSpace($finOpsUrl)) {
+            Write-Host "##[warning]No F&O operations URL available — skipping DMF refresh."
+            exit 0
+          }
+          $finOpsUrl = $finOpsUrl.TrimEnd('/')
+
+          $tenantId     = "$(PP_TENANT_ID)"
+          $clientId     = "$(PP_APPLICATION_ID)"
+          $clientSecret = "$(PP_CLIENT_SECRET)"
+
+          Write-Host "Starting DMF entity refresh against: $finOpsUrl"
+
+          $tokenResp = Invoke-RestMethod -Method Post `
+            -Uri "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token" `
+            -ContentType "application/x-www-form-urlencoded" `
+            -Body @{
+              client_id     = $clientId
+              client_secret = $clientSecret
+              grant_type    = "client_credentials"
+              scope         = "$finOpsUrl/.default"
+            }
+
+          $headers = @{
+            Authorization = "Bearer $($tokenResp.access_token)"
+            Accept        = "application/json"
+          }
+
+          $uri = "$finOpsUrl/data/DataManagementDefinitionGroups/Microsoft.Dynamics.DataEntities.InitializeDataManagement"
+          Write-Host "POST $uri"
+
+          Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -ContentType "application/json" -Body "{}" | Out-Null
+          Write-Host "DMF entity refresh initialized successfully."
+        displayName: "Start DMF entity refresh (InitializeDataManagement)"

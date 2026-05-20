@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXVendTable_Table_Extension</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+[ExtensionOf(tableStr(VendTable))]
+final class AAXVendTable_Table_Extension
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>insert</Name>
+				<Source><![CDATA[
+    void insert()
+    {        
+        next insert();
+        if (BusinessEventsConfigurationReader::isBusinessEventEnabled(classStr(AAXVendorUpdatedBusinessEvent)))
+        {
+            AAXVendorUpdatedBusinessEvent::newFromVendTable(this).send();
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>update</Name>
+				<Source><![CDATA[
+    void update(boolean _updateSmmBusRelTable, boolean _updateParty)
+    {
+        next update(_updateSmmBusRelTable, _updateParty);
+        if (BusinessEventsConfigurationReader::isBusinessEventEnabled(classStr(AAXVendorUpdatedBusinessEvent)))
+        {
+            AAXVendorUpdatedBusinessEvent::newFromVendTable(this).send();
+        }
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

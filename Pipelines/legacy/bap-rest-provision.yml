@@ -1,0 +1,244 @@
+# LEGACY: Direct BAP REST API provisioning (api.bap.microsoft.com, v2020-08-01).
+# See ../provision-environment.yml for the current PowerShell-based PPAC approach.
+
+trigger: none
+
+pool:
+  vmImage: windows-latest
+
+parameters:
+  - name: bapBaseUrl
+    displayName: "BAP Base URL"
+    type: string
+    default: "https://api.bap.microsoft.com"
+
+  - name: apiVersion
+    displayName: "API Version"
+    type: string
+    default: "2020-08-01"
+
+  - name: locationName
+    displayName: "Location Name"
+    type: string
+    default: "unitedstates"
+
+  - name: environmentSku
+    displayName: "Environment SKU"
+    type: string
+    default: "Sandbox"
+    values:
+      - Trial
+      - Sandbox
+      - Production
+      - SubscriptionBasedTrial
+      - Teams
+      - Developer
+
+  - name: displayName
+    displayName: "Display Name"
+    type: string
+    default: "ADO Provisioned - Sandbox"
+
+  - name: description
+    displayName: "Description"
+    type: string
+    default: "Created from Azure DevOps pipeline"
+
+  - name: provisionDatabase
+    displayName: "Provision Dataverse Database?"
+    type: boolean
+    default: false
+
+  - name: languageName
+    displayName: "Dataverse Language (required if provisioning DB)"
+    type: string
+    default: "English"
+
+  - name: currencyName
+    displayName: "Dataverse Currency (required if provisioning DB)"
+    type: string
+    default: "USD"
+
+stages:
+- stage: CreateEnvironment
+  displayName: "Create Power Platform Environment"
+  jobs:
+  - job: Create
+    displayName: "Create environment via BAP REST (PowerShell)"
+    steps:
+    - powershell: |
+        $ErrorActionPreference = "Stop"
+
+        function Get-AccessToken {
+          param(
+            [Parameter(Mandatory=$true)][string]$TenantId,
+            [Parameter(Mandatory=$true)][string]$ClientId,
+            [Parameter(Mandatory=$true)][string]$ClientSecret,
+            [Parameter(Mandatory=$true)][string]$Scope
+          )
+
+          $tokenUrl = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
+          $body = @{
+            client_id     = $ClientId
+            client_secret = $ClientSecret
+            grant_type    = "client_credentials"
+            scope         = $Scope
+          }
+
+          $resp = Invoke-RestMethod -Method Post -Uri $tokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
+          if (-not $resp.access_token) {
+            throw "Failed to acquire access token. Response: $($resp | ConvertTo-Json -Depth 10)"
+          }
+          return $resp.access_token
+        }
+
+        function New-CreateEnvironmentBody {
+          param(
+            [Parameter(Mandatory=$true)][string]$LocationName,
+            [Parameter(Mandatory=$true)][string]$EnvironmentSku,
+            [Parameter()][string]$DisplayName,
+            [Parameter()][string]$Description,
+            [Parameter(Mandatory=$true)][bool]$ProvisionDatabase,
+            [Parameter()][string]$LanguageName,
+            [Parameter()][string]$CurrencyName
+          )
+
+          $body = [ordered]@{
+            locationName      = $LocationName
+            environmentSku    = $EnvironmentSku
+            displayName       = $DisplayName
+            description       = $Description
+            provisionDatabase = $ProvisionDatabase
+          }
+
+          if ($ProvisionDatabase) {
+            if ([string]::IsNullOrWhiteSpace($LanguageName) -or [string]::IsNullOrWhiteSpace($CurrencyName)) {
+              throw "When provisionDatabase=true, languageName and currencyName are required."
+            }
+            $body.languageName = $LanguageName
+            $body.currencyName = $CurrencyName
+            $body.templates    = @()
+          }
+
+          return ($body | ConvertTo-Json -Depth 20)
+        }
+
+        function Get-OperationStatus {
+          param(
+            [Parameter(Mandatory=$true)][string]$OperationUrl,
+            [Parameter(Mandatory=$true)][string]$AccessToken
+          )
+
+          $headers = @{
+            Authorization = "Bearer $AccessToken"
+            "Content-Type" = "application/json"
+          }
+
+          return Invoke-RestMethod -Method Get -Uri $OperationUrl -Headers $headers
+        }
+
+        # ---- Parameters (UI-driven) ----
+        $bapBaseUrl     = "${{ parameters.bapBaseUrl }}"
+        $apiVersion     = "${{ parameters.apiVersion }}"
+        $locationName   = "${{ parameters.locationName }}"
+        $environmentSku = "${{ parameters.environmentSku }}"
+        $displayName    = "${{ parameters.displayName }}"
+        $description    = "${{ parameters.description }}"
+
+        # boolean parameter comes through as True/False (PowerShell-friendly)
+        $provisionDb    = [bool]::Parse("${{ parameters.provisionDatabase }}")
+
+        $languageName   = "${{ parameters.languageName }}"
+        $currencyName   = "${{ parameters.currencyName }}"
+
+        # ---- Secrets (ADO variables) ----
+        $tenantId     = "$(TENANT_ID)"
+        $clientId     = "$(CLIENT_ID)"
+        $clientSecret = "$(CLIENT_SECRET)"
+
+        if ([string]::IsNullOrWhiteSpace($tenantId) -or [string]::IsNullOrWhiteSpace($clientId) -or [string]::IsNullOrWhiteSpace($clientSecret)) {
+          throw "Missing required secrets. Set TENANT_ID, CLIENT_ID, CLIENT_SECRET as secret pipeline variables (or variable group / Key Vault)."
+        }
+
+        Write-Host "Getting token..."
+        $token = Get-AccessToken -TenantId $tenantId -ClientId $clientId -ClientSecret $clientSecret -Scope "$bapBaseUrl/.default"
+
+        Write-Host "Building request body..."
+        $jsonBody = New-CreateEnvironmentBody `
+          -LocationName $locationName `
+          -EnvironmentSku $environmentSku `
+          -DisplayName $displayName `
+          -Description $description `
+          -ProvisionDatabase $provisionDb `
+          -LanguageName $languageName `
+          -CurrencyName $currencyName
+
+        Write-Host "Request body:"
+        Write-Host $jsonBody
+
+        $url = "$bapBaseUrl/providers/Microsoft.BusinessAppPlatform/scopes/admin/environments?api-version=$apiVersion"
+        $headers = @{ Authorization = "Bearer $token" }
+
+        Write-Host "Calling create environment: $url"
+        $resp = Invoke-WebRequest -Method Post -Uri $url -Headers $headers -ContentType "application/json" -Body $jsonBody -UseBasicParsing
+
+        $statusCode = [int]$resp.StatusCode
+        Write-Host "HTTP $statusCode"
+        if ($resp.Content) {
+          Write-Host "Response body:"
+          Write-Host $resp.Content
+        }
+
+        if ($statusCode -eq 201) {
+          Write-Host "Environment created synchronously."
+          try {
+            $obj = $resp.Content | ConvertFrom-Json
+            if ($obj.id) {
+              Write-Host "##vso[task.setvariable variable=CreatedEnvironmentId]$($obj.id)"
+              Write-Host "CreatedEnvironmentId=$($obj.id)"
+            }
+          } catch { }
+          exit 0
+        }
+
+        if ($statusCode -eq 202) {
+          $location = $resp.Headers["Location"]
+          if (-not $location) { throw "202 returned but no Location header was provided to poll." }
+
+          Write-Host "Async accepted. Polling operation: $location"
+
+          $maxLoops = 60
+          $sleepSeconds = 30
+
+          for ($i = 1; $i -le $maxLoops; $i++) {
+            $statusObj = Get-OperationStatus -OperationUrl $location -AccessToken $token
+
+            $opStatus = $statusObj.status
+            if (-not $opStatus -and $statusObj.properties) { $opStatus = $statusObj.properties.status }
+
+            $resourceId = $statusObj.resourceId
+            if (-not $resourceId -and $statusObj.properties) { $resourceId = $statusObj.properties.resourceId }
+
+            Write-Host "[$i/$maxLoops] status=$opStatus resourceId=$resourceId"
+
+            if ($opStatus -eq "Succeeded") {
+              Write-Host "Provisioning succeeded."
+              if ($resourceId) {
+                Write-Host "##vso[task.setvariable variable=CreatedEnvironmentId]$resourceId"
+                Write-Host "CreatedEnvironmentId=$resourceId"
+              }
+              exit 0
+            }
+
+            if ($opStatus -eq "Failed" -or $opStatus -eq "Canceled") {
+              throw ("Provisioning did not succeed: " + ($statusObj | ConvertTo-Json -Depth 20))
+            }
+
+            Start-Sleep -Seconds $sleepSeconds
+          }
+
+          throw "Timed out waiting for async provisioning to complete."
+        }
+
+        throw "Unexpected HTTP status code: $statusCode"
+      displayName: "Create environment (UI parameters)"

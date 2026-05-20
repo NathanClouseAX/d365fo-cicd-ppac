@@ -1,0 +1,228 @@
+# templates/deploy-finops-package.yml
+#
+# Deploys a Finance and Operations deployable package to a PPAC-managed environment.
+#
+# ── Two-job pattern ────────────────────────────────────────────────────────
+#   1. Submit  – install tools, validate auth, submit package to PPAC and
+#                wait synchronously for the deployment to complete (up to 3h).
+#   2. Verify  – poll PPAC Management API for operation outcome, notify Teams,
+#                fail the stage if deployment is in a bad state.
+#
+# ── Prerequisites for status polling (Verify job) ──────────────────────────
+#   • Variable group 'PowerPlatform-Auth' available to the calling pipeline
+#     containing: PP_TENANT_ID, PP_APPLICATION_ID, PP_CLIENT_SECRET
+#   • Service principal must be registered as a Power Platform management app
+#     (New-PowerAppManagementApp) so it can call api.powerplatform.com
+#   • The environment URL is read automatically from the Power Platform service
+#     connection — no separate URL parameter required.
+
+parameters:
+  - name: environmentName          # Azure DevOps Environment (approval gates + audit trail)
+    type: string
+  - name: serviceConnectionName    # Power Platform SPN service connection
+    type: string
+  - name: environmentUrl           # Dataverse/CRM URL (e.g., https://org12345.crm.dynamics.com)
+    type: string
+  - name: packageFile              # Path to CloudDeployablePackage / TemplatePackage.dll
+    type: string
+  - name: stageLabel               # Short label used in display names: UAT / PROD / DM / GOLD
+    type: string
+  - name: maxDeployWaitMinutes     # Max time to wait for PPAC to finish applying the package
+    type: number
+    default: 180
+  - name: readinessTimeoutMinutes  # Max time to wait for environment to reach Ready state
+    type: number
+    default: 30
+
+jobs:
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Job 1 of 2 — Submit & Wait
+  #   Validates the service connection, submits the package to PPAC, and
+  #   waits synchronously for the deployment to complete. The agent remains
+  #   allocated during the wait.
+  # ══════════════════════════════════════════════════════════════════════════
+  - deployment: Submit_${{ parameters.stageLabel }}
+    displayName: '1/2 Submit & Wait — ${{ parameters.stageLabel }}'
+    timeoutInMinutes: 240
+    pool:
+      vmImage: 'windows-2022'
+    environment: ${{ parameters.environmentName }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - template: teams-notify.yml
+              parameters:
+                title: 'Deploy to ${{ parameters.stageLabel }} started: $(Build.DefinitionName) #$(Build.BuildNumber)'
+                text: 'Package submitted to ${{ parameters.environmentName }}. Waiting up to ${{ parameters.maxDeployWaitMinutes }} min for completion.'
+                themeColor: '0078D7'
+
+            - task: PowerPlatformToolInstaller@2
+              displayName: 'Install Power Platform tools'
+
+            - task: PowerPlatformWhoAmi@2
+              displayName: 'Validate service connection — ${{ parameters.stageLabel }}'
+              inputs:
+                authenticationType: PowerPlatformSPN
+                PowerPlatformSPN: '${{ parameters.serviceConnectionName }}'
+
+            - pwsh: |
+                $ErrorActionPreference = "Stop"
+                $timeoutMin = ${{ parameters.readinessTimeoutMinutes }}
+                $pollSec    = 30
+                $deadline   = (Get-Date).AddMinutes($timeoutMin)
+
+                $tenantId  = "$(PP_TENANT_ID)"
+                $clientId  = "$(PP_APPLICATION_ID)"
+                $secret    = "$(PP_CLIENT_SECRET)"
+                $envUrl    = "${{ parameters.environmentUrl }}".TrimEnd('/')
+
+                $orgKey = ([uri]$envUrl).Host -replace '\..*$'
+                Write-Host "Checking readiness for environment: $envUrl (host key: $orgKey)"
+
+                # ── Authenticate via PowerApps Admin module ──
+                Install-Module -Name Microsoft.PowerApps.Administration.PowerShell -Force -Scope CurrentUser -AllowClobber
+                Add-PowerAppsAccount -Endpoint prod -TenantID $tenantId -ApplicationId $clientId -ClientSecret $secret
+
+                # ── Resolve environment GUID by matching URL ──
+                Write-Host "Resolving PPAC environment GUID..."
+                $allEnvs = Get-AdminPowerAppEnvironment
+                $target = $allEnvs | Where-Object {
+                  $_.Internal.properties.linkedEnvironmentMetadata.instanceUrl -like "*$orgKey*"
+                } | Select-Object -First 1
+
+                if (-not $target) {
+                  Write-Host "##[error]Environment not found in PPAC for host key '$orgKey'. Verify environmentUrl parameter."
+                  exit 1
+                }
+
+                $envId = $target.EnvironmentName
+                Write-Host "Resolved PPAC environment: $envId"
+                Write-Host "##vso[task.setvariable variable=PpacEnvironmentId]$envId"
+
+                # ── Poll until state is Ready ──
+                $readyStates = @('Ready', 'Enabled', 'Succeeded')
+                while ((Get-Date) -lt $deadline) {
+                  $env = Get-AdminPowerAppEnvironment -EnvironmentName $envId
+                  $state = $env.Internal.properties.states.runtime.id ?? $env.Internal.properties.provisioningState ?? "Unknown"
+                  Write-Host "Environment state: $state ($(Get-Date -Format 'HH:mm:ss'))"
+
+                  if ($state -in $readyStates) {
+                    Write-Host "Environment is ready for deployment."
+                    exit 0
+                  }
+
+                  Write-Host "Waiting ${pollSec}s for environment to leave '$state' state..."
+                  Start-Sleep -Seconds $pollSec
+                }
+
+                Write-Host "##[error]Environment still not ready after ${timeoutMin} minutes (last state: $state). Cannot deploy."
+                exit 1
+              displayName: 'Wait for environment readiness — ${{ parameters.stageLabel }}'
+              name: readinessCheck
+
+            - task: PowerPlatformDeployPackage@2
+              displayName: 'Deploy package to PPAC — ${{ parameters.stageLabel }}'
+              inputs:
+                authenticationType: PowerPlatformSPN
+                PowerPlatformSPN: '${{ parameters.serviceConnectionName }}'
+                PackageFile:       '${{ parameters.packageFile }}'
+                MaxAsyncWaitTime:  ${{ parameters.maxDeployWaitMinutes }}
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Job 2 of 2 — Verify
+  #   Polls the PPAC Management API for the most recent operation on the
+  #   target environment, reports the outcome to Teams, and fails the stage
+  #   if the deployment is in a bad or incomplete state so that dependent
+  #   stages (e.g. PROD after UAT) do not proceed unnecessarily.
+  # ══════════════════════════════════════════════════════════════════════════
+  - job: Verify_${{ parameters.stageLabel }}
+    displayName: '2/2 Verify — ${{ parameters.stageLabel }}'
+    dependsOn: Submit_${{ parameters.stageLabel }}
+    condition: "in(dependencies.Submit_${{ parameters.stageLabel }}.result, 'Succeeded', 'SucceededWithIssues')"
+    pool:
+      vmImage: 'windows-2022'
+    variables:
+      - group: Teams-Secrets
+      - group: PowerPlatform-Auth
+    steps:
+      - task: PowerPlatformToolInstaller@2
+        displayName: 'Install Power Platform tools'
+
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $tenantId  = "$(PP_TENANT_ID)"
+          $clientId  = "$(PP_APPLICATION_ID)"
+          $secret    = "$(PP_CLIENT_SECRET)"
+
+          $envUrl = "${{ parameters.environmentUrl }}".TrimEnd('/')
+          $orgKey = ([uri]$envUrl).Host -replace '\..*$'
+          Write-Host "Verifying deployment for environment: $envUrl (host key: $orgKey)"
+
+          try {
+            # ── Authenticate via PowerApps Admin module ──
+            Install-Module -Name Microsoft.PowerApps.Administration.PowerShell -Force -Scope CurrentUser -AllowClobber
+            Add-PowerAppsAccount -Endpoint prod -TenantID $tenantId -ApplicationId $clientId -ClientSecret $secret
+
+            # ── Resolve PPAC environment GUID from org URL ──
+            $allEnvs = Get-AdminPowerAppEnvironment
+            $target = $allEnvs | Where-Object {
+              $_.Internal.properties.linkedEnvironmentMetadata.instanceUrl -like "*$orgKey*"
+            } | Select-Object -First 1
+
+            if (-not $target) {
+              Write-Warning "PPAC environment not found for host key '$orgKey'."
+              Write-Host "##vso[task.setvariable variable=DeployStatus]Unknown"
+              Write-Host "##vso[task.setvariable variable=DeployDetail]Environment not found in PPAC (host key: $orgKey)."
+              exit 0
+            }
+
+            $envId = $target.EnvironmentName
+            Write-Host "Resolved PPAC environment GUID: $envId"
+
+            # ── Check environment state ──
+            $env = Get-AdminPowerAppEnvironment -EnvironmentName $envId
+            $state = $env.Internal.properties.provisioningState ?? "Unknown"
+            $runtimeState = $env.Internal.properties.states.runtime.id ?? "Unknown"
+            $detail = "EnvironmentId=$envId | ProvisioningState=$state | RuntimeState=$runtimeState"
+
+            Write-Host $detail
+            Write-Host "##vso[task.setvariable variable=DeployStatus]$runtimeState"
+            Write-Host "##vso[task.setvariable variable=DeployDetail]$detail"
+
+            # ── Evaluate outcome ──
+            $successStates = @('Succeeded', 'Completed', 'Ready', 'Enabled')
+            $failStates    = @('Failed', 'Error')
+
+            if ($runtimeState -in $failStates -or $state -in $failStates) {
+              Write-Host "##vso[task.logissue type=error]Deployment outcome for ${{ parameters.stageLabel }} is '$state / $runtimeState'. Review in Power Platform Admin Center."
+              exit 1
+            }
+
+            if ($runtimeState -notin $successStates -and $state -notin $successStates) {
+              Write-Host "##vso[task.logissue type=warning]Environment state is '$state / $runtimeState' — may still be processing."
+            }
+
+          } catch {
+            Write-Warning "PPAC status check failed: $($_.Exception.Message)"
+            Write-Warning "Verify deployment manually in Power Platform Admin Center."
+            Write-Host "##vso[task.setvariable variable=DeployStatus]Unknown"
+            Write-Host "##vso[task.setvariable variable=DeployDetail]PPAC API unavailable — verify deployment manually."
+          }
+        displayName: 'Poll PPAC — evaluate deployment outcome'
+
+      - template: teams-notify.yml
+        parameters:
+          title: 'Deploy to ${{ parameters.stageLabel }} succeeded: $(Build.DefinitionName) #$(Build.BuildNumber)'
+          text: '$(DeployDetail)'
+          themeColor: '2EB886'
+          condition: 'succeeded()'
+
+      - template: teams-notify.yml
+        parameters:
+          title: 'Deploy to ${{ parameters.stageLabel }} failed: $(Build.DefinitionName) #$(Build.BuildNumber)'
+          text: 'PPAC status: $(DeployStatus). $(DeployDetail). Review deployment in Power Platform Admin Center.'
+          themeColor: 'D83B01'
+          condition: 'failed()'

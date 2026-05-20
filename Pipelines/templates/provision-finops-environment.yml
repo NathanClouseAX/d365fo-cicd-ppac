@@ -1,0 +1,209 @@
+# templates/provision-pp-environment.yml
+# Provisions a Power Platform environment with a D365 F&O template via PowerApps Admin PowerShell
+
+parameters:
+  # Auth (recommend these come from a variable group in the consuming pipeline)
+  - name: tenantId
+    type: string
+    default: '$(PP_TENANT_ID)'
+
+  - name: applicationId
+    type: string
+    default: '$(PP_APPLICATION_ID)'
+
+  - name: clientSecret
+    type: string
+    default: '$(PP_CLIENT_SECRET)'
+
+  # Power Platform endpoint (prod/gcc/etc). Your script used "prod".
+  - name: endpoint
+    type: string
+    default: 'prod'
+
+  # Environment inputs (your script used Read-Host for display name)
+  - name: instanceDisplayName
+    type: string
+    default: ''
+
+  - name: environmentSku
+    type: string
+    default: 'Production'
+
+  - name: templates
+    type: string
+    default: 'D365_FinOps_Finance'
+
+  - name: locationName
+    type: string
+    default: 'unitedstates'
+
+  - name: provisionDatabase
+    type: boolean
+    default: true
+
+  - name: waitUntilFinished
+    type: boolean
+    default: false
+
+  # Optional: Security group ID (GUID). If blank, we omit the parameter.
+  - name: securityGroupId
+    type: string
+    default: ''
+
+  # TemplateMetadata -> PostProvisioningPackages parameters (your script hard-coded these)
+  - name: devToolsEnabled
+    type: boolean
+    default: false
+
+  - name: demoDataEnabled
+    type: boolean
+    default: true
+
+  - name: applicationUniqueName
+    type: string
+    default: 'msdyn_FinanceAndOperationsProvisioningAppAnchor'
+
+  # Description stamped on the environment (used by cleanup pipeline to match branches)
+  - name: description
+    type: string
+    default: ''
+
+  # Module control
+  - name: moduleName
+    type: string
+    default: 'Microsoft.PowerApps.Administration.PowerShell'
+
+steps:
+  - task: PowerShell@2
+    displayName: 'Provision Power Platform Environment (D365 F&O)'
+    inputs:
+      targetType: 'inline'
+      pwsh: true
+      script: |
+        $ErrorActionPreference = "Stop"
+
+        function Remove-Spaces {
+          param([string]$InputString)
+          return $InputString -replace ' ', ''
+        }
+
+        # ---- Parameters from YAML ----
+        $tenantId        = '${{ parameters.tenantId }}'
+        $applicationId   = '${{ parameters.applicationId }}'
+        $clientSecret    = '${{ parameters.clientSecret }}'
+        $endpoint        = '${{ parameters.endpoint }}'
+
+        $displayName     = '${{ parameters.instanceDisplayName }}'
+
+        # Detect unexpanded ADO macro (variable never set) or empty value
+        if ($displayName -match '^\$\(.*\)$') {
+          Write-Host "##[warning]instanceDisplayName was not expanded by ADO (got literal: $displayName)"
+          $displayName = ''
+        }
+
+        # Replace slashes with dashes for a cleaner environment display name
+        $displayName = $displayName -replace '[\\/]+','-'
+
+        $environmentSku  = '${{ parameters.environmentSku }}'
+        $templates       = '${{ parameters.templates }}'
+        $locationName    = '${{ parameters.locationName }}'
+
+        $provisionDb     = [System.Convert]::ToBoolean('${{ parameters.provisionDatabase }}')
+        $waitFinished    = [System.Convert]::ToBoolean('${{ parameters.waitUntilFinished }}')
+
+        $securityGroupId = '${{ parameters.securityGroupId }}'
+
+        $devToolsEnabled = [System.Convert]::ToBoolean('${{ parameters.devToolsEnabled }}')
+        $demoDataEnabled = [System.Convert]::ToBoolean('${{ parameters.demoDataEnabled }}')
+
+        $applicationUniqueName = '${{ parameters.applicationUniqueName }}'
+        $moduleName            = '${{ parameters.moduleName }}'
+        $description           = '${{ parameters.description }}'
+
+        if ([string]::IsNullOrWhiteSpace($displayName)) {
+          throw "instanceDisplayName is required but was empty. Raw parameter value: '${{ parameters.instanceDisplayName }}'. Check that the 'Compute environment name from branch' step ran successfully."
+        }
+
+        # Optional: show a sanitized name (not used by New-AdminPowerAppEnvironment here, but kept from your base script)
+        $displayNameNoSpaces = Remove-Spaces -InputString $displayName
+        Write-Host "DisplayName: $displayName"
+        Write-Host "DisplayName (no spaces): $displayNameNoSpaces"
+
+        # ---- Install module ----
+        Write-Host "Installing PowerApps Administration PowerShell module: $moduleName"
+        Install-Module -Name $moduleName -Force -Scope CurrentUser -AllowClobber
+
+        # ---- Authenticate (service principal, non-interactive) ----
+        Write-Host "Authenticating to Power Platform endpoint '$endpoint' using service principal..."
+        
+        if ([string]::IsNullOrWhiteSpace($clientSecret)) {
+          throw "PP_CLIENT_SECRET is empty. Check variable group permissions / variable name / secret masking."
+        }
+        Write-Host "Client secret present (length): $($clientSecret.Length)"
+        
+        Add-PowerAppsAccount `
+          -Endpoint $endpoint `
+          -TenantID $tenantId `
+          -ApplicationId $applicationId `
+          -ClientSecret $clientSecret
+
+        # ---- Build TemplateMetadata JSON ----
+        $paramString = "DevToolsEnabled=$($devToolsEnabled.ToString().ToLower())|DemoDataEnabled=$($demoDataEnabled.ToString().ToLower())"
+
+        $templateMetadata = @{
+          PostProvisioningPackages = @(
+            @{
+              applicationUniqueName = $applicationUniqueName
+              parameters            = $paramString
+            }
+          )
+        }
+
+        Write-Host "TemplateMetadata parameters: $paramString"
+
+        # ---- Provision environment ----
+        Write-Host "Provisioning new environment..."
+        $cmdArgs = @{
+          DisplayName       = $displayName
+          EnvironmentSku    = $environmentSku
+          Templates         = $templates
+          TemplateMetadata  = $templateMetadata
+          LocationName      = $locationName
+          ProvisionDatabase = $provisionDb
+          WaitUntilFinished = $waitFinished
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($description)) {
+          $cmdArgs.Description = $description
+          Write-Host "Description: $description"
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($securityGroupId)) {
+          $cmdArgs.SecurityGroupId = $securityGroupId
+          Write-Host "SecurityGroupId provided."
+        } else {
+          Write-Host "SecurityGroupId not provided (omitting)."
+        }
+
+        # Note: New-AdminPowerAppEnvironment outputs an environment object/operation reference.
+        $result = New-AdminPowerAppEnvironment @cmdArgs
+
+        # We don't expect an environment GUID until provisioning finishes (can take hours),
+        # so we persist the display name for downstream lookup instead.
+        Write-Host "Provision request submitted."
+        if ($result -and $result.Code) {
+          Write-Host "HTTP Status: $($result.Code)"
+        }
+        if ($result -and $result.Headers -and $result.Headers['Location']) {
+          $location = ($result.Headers['Location'] | Select-Object -First 1)
+          Write-Host "Async operation Location: $location"
+          # Optional: also persist the operation URL for later troubleshooting
+          Write-Host "##vso[task.setvariable variable=ProvisionOperationLocation]$location"
+        }
+
+        Write-Host "Created/Target environment DisplayName (for lookup): $displayName"
+        Write-Host "##vso[task.setvariable variable=CreatedEnvironmentDisplayName]$displayName"
+        Write-Host "##vso[task.setvariable variable=CreatedEnvironmentDisplayName;isOutput=true]$displayName"
+
+
+

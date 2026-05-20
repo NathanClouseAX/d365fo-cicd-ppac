@@ -1,0 +1,51 @@
+---
+title: PR Validation - Full Integration Test
+---
+flowchart TD
+    subgraph "Stage 1: Compile (~10 min)"
+        BUILD[build-xpp.yml<br/>Compile + Package]
+    end
+
+    subgraph "Stage 2: Integration Test (~4-5 hours)"
+        PROV[Provision ephemeral<br/>sandbox environment<br/>+ branch tag]
+        WAIT[Wait 3 hours<br/>Agentless server delay<br/>pool: server]
+        POLL[Poll for readiness<br/>up to 60 min]
+        COPY[Copy DB from<br/>known good source]
+        DEPLOY[Deploy package<br/>to test environment]
+        SYNC[Database<br/>synchronization]
+        SYSTEST[SysTest suite<br/>optional]
+        ODATA[OData smoke tests<br/>+ other tests<br/>optional]
+        TEARDOWN[Delete test<br/>environment]
+    end
+
+    subgraph "Result"
+        PASS[PR check passes<br/>Merge allowed]
+        FAIL[PR check fails<br/>Merge blocked]
+    end
+
+    BUILD -->|artifact| PROV
+    PROV --> WAIT
+    WAIT --> POLL
+    POLL --> COPY
+    COPY --> DEPLOY
+    DEPLOY --> SYNC
+    SYNC --> ODATA
+    ODATA --> SYSTEST
+    SYSTEST -->|pass| PASS
+    SYSTEST -->|fail| FAIL
+    ODATA -->|fail| FAIL
+
+    SYSTEST --> TEARDOWN
+    FAIL --> TEARDOWN
+
+    style BUILD fill:#e3f2fd,stroke:#2196f3
+    style PROV fill:#f3e5f5,stroke:#9c27b0
+    style POLL fill:#f3e5f5,stroke:#9c27b0
+    style COPY fill:#f3e5f5,stroke:#9c27b0
+    style DEPLOY fill:#e3f2fd,stroke:#2196f3
+    style SYNC fill:#fff3e0,stroke:#ff9800
+    style ODATA fill:#fff3e0,stroke:#ff9800
+    style SYSTEST fill:#fff3e0,stroke:#ff9800
+    style TEARDOWN fill:#fce4ec,stroke:#f44336
+    style PASS fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style FAIL fill:#fce4ec,stroke:#f44336,stroke-width:2px

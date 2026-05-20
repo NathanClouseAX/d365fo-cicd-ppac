@@ -1,0 +1,86 @@
+# build.yml
+# Compiles X++ code and publishes a deployable package artifact.
+# Triggers on all branches. Only release/* artifacts flow to deploy.yml → release.yml.
+# Main builds serve as early compilation validation (no deployment occurs from main).
+
+name: $(Date:yy.MM.dd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+      - main
+      - feature/*
+      - bug/*
+      - hotfix/*
+      - release/*
+  paths:
+    exclude:
+      - docs/*
+      - '*.md'
+
+pr: none
+
+schedules:
+  - cron: "0 6 * * *"
+    displayName: Daily Build (main)
+    branches:
+      include:
+        - main
+    always: false
+
+variables:
+  - group: Teams-Secrets
+
+  - name: App1Package
+    value: 'Microsoft.Dynamics.AX.Application1.DevALM.BuildXpp'
+  - name: App2Package
+    value: 'Microsoft.Dynamics.AX.Application2.DevALM.BuildXpp'
+  - name: AppSuitePackage
+    value: 'Microsoft.Dynamics.AX.ApplicationSuite.DevALM.BuildXpp'
+  - name: PlatPackage
+    value: 'Microsoft.Dynamics.AX.Platform.DevALM.BuildXpp'
+  - name: ToolsPackage
+    value: 'Microsoft.Dynamics.AX.Platform.CompilerPackage'
+  - name: MetadataPath
+    value: '$(Build.SourcesDirectory)\src\xpp\models'
+  - name: NugetConfigsPath
+    value: '$(Build.SourcesDirectory)\src\xpp\build'
+  - name: NugetsPath
+    value: '$(Pipeline.Workspace)\NuGets'
+  - name: BuildSolution
+    value: '$(Build.SourcesDirectory)\src\xpp\projects\Build\Build.sln'
+  - name: ArtifactName
+    value: 'drop'
+
+pool:
+  vmImage: 'windows-2022'
+  demands:
+    - msbuild
+    - visualstudio
+
+steps:
+  - template: templates/teams-notify.yml
+    parameters:
+      title: 'Build started: $(Build.DefinitionName) #$(Build.BuildNumber)'
+      text: 'Branch: $(Build.SourceBranchName)'
+      themeColor: '0078D7'
+
+  - template: templates/build-xpp.yml
+    parameters:
+      createPackage: true
+      publishArtifact: true
+      artifactName: '$(ArtifactName)'
+
+  - template: templates/teams-notify.yml
+    parameters:
+      title: 'Build succeeded: $(Build.DefinitionName) #$(Build.BuildNumber)'
+      text: 'Branch: $(Build.SourceBranchName). Deployable package published.'
+      themeColor: '2EB886'
+      condition: 'succeeded()'
+
+  - template: templates/teams-notify.yml
+    parameters:
+      title: 'Build failed: $(Build.DefinitionName) #$(Build.BuildNumber)'
+      text: 'Branch: $(Build.SourceBranchName). Check the logs for details.'
+      themeColor: 'D83B01'
+      condition: 'failed()'

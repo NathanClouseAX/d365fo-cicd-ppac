@@ -1,0 +1,94 @@
+# templates/build-xpp.yml
+#
+# Reusable steps template: compile X++ and create a deployable package.
+# Can be consumed by build.yml, pr-validation.yml, or any future orchestrator
+# that needs to build X++ inline (e.g., PR environment pipeline).
+
+parameters:
+  - name: createPackage
+    type: boolean
+    default: true
+  - name: publishArtifact
+    type: boolean
+    default: true
+  - name: artifactName
+    type: string
+    default: 'drop'
+
+steps:
+  - task: Cache@2
+    displayName: 'Cache NuGet packages'
+    inputs:
+      key: 'nuget | "$(Agent.OS)" | $(NugetConfigsPath)\packages.config'
+      restoreKeys: |
+        nuget | "$(Agent.OS)"
+      path: '$(NugetsPath)'
+      cacheHitVar: 'NUGET_CACHE_RESTORED'
+
+  - task: NuGetAuthenticate@1
+    displayName: 'Authenticate to Azure Artifacts'
+
+  - task: NuGetCommand@2
+    displayName: 'NuGet: install DevALM packages'
+    condition: ne(variables.NUGET_CACHE_RESTORED, 'true')
+    retryCountOnTaskFailure: 2
+    inputs:
+      command: custom
+      arguments: >-
+        install -NonInteractive
+        "$(NugetConfigsPath)\packages.config"
+        -ConfigFile "$(NugetConfigsPath)\nuget.config"
+        -Verbosity Detailed
+        -ExcludeVersion
+        -OutputDirectory "$(NugetsPath)"
+
+  - task: XppUpdateModelVersion@0
+    displayName: 'Update X++ Model Version'
+    inputs:
+      XppSourcePath: '$(MetadataPath)'
+      VersionNumber: '$(Build.BuildNumber)'
+
+  - task: VSBuild@1
+    displayName: 'Build X++ solution'
+    inputs:
+      solution: '$(BuildSolution)'
+      vsVersion: '17.0'
+      msbuildArgs: >-
+        /restore
+        /p:BuildTasksDirectory="$(NugetsPath)\$(ToolsPackage)\DevAlm"
+        /p:MetadataDirectory="$(MetadataPath)"
+        /p:FrameworkDirectory="$(NugetsPath)\$(ToolsPackage)"
+        /p:ReferenceFolder="$(NugetsPath)\$(PlatPackage)\ref\net40;$(NugetsPath)\$(App1Package)\ref\net40;$(NugetsPath)\$(App2Package)\ref\net40;$(NugetsPath)\$(AppSuitePackage)\ref\net40;$(MetadataPath);$(Build.BinariesDirectory)"
+        /p:ReferencePath="$(NugetsPath)\$(ToolsPackage)"
+        /p:OutputDirectory="$(Build.BinariesDirectory)"
+
+  - task: CopyFiles@2
+    displayName: 'Collect X++ compile logs'
+    condition: succeededOrFailed()
+    inputs:
+      SourceFolder: '$(Build.SourcesDirectory)'
+      Contents: |
+        **\Dynamics.AX.*.xppc.*
+        **\Dynamics.AX.*.labelc.*
+        **\Dynamics.AX.*.reportsc.*
+      TargetFolder: '$(Build.ArtifactStagingDirectory)\Logs'
+
+  - ${{ if parameters.createPackage }}:
+    - task: XppCreatePackage@2
+      displayName: 'Create deployable package'
+      inputs:
+        XppToolsPath:        '$(NugetsPath)\$(ToolsPackage)'
+        XppBinariesPath:     '$(Build.BinariesDirectory)'
+        XppBinariesSearch:   |
+          *
+          $(Build.SourcesDirectory)\src\xpp\models\Sample
+          $(Build.SourcesDirectory)\src\xpp\models\AAXBusinessEvents
+        CreateCloudPackage:  true
+        CreateRegularPackage: false
+
+  - ${{ if parameters.publishArtifact }}:
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish artifact: ${{ parameters.artifactName }}'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifact:   '${{ parameters.artifactName }}'

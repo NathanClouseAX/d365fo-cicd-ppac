@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXVendorCreatedBusinessEvent</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// Vendor created business event.
+/// </summary>
+[BusinessEvents(classStr(AAXVendorCreatedBusinessEventContract), 'VendorCreatedBusinessEventName', 'VendorCreatedBusinessEventDescription', ModuleAxapta::Vendor)]
+public final class AAXVendorCreatedBusinessEvent extends BusinessEventsBase
+{
+    private VendTable vendTable;
+
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>parmVendTable</Name>
+				<Source><![CDATA[
+    private VendTable parmVendTable(VendTable _vendTable = vendTable)
+    {
+        vendTable = _vendTable;
+
+        return vendTable;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>newFromVendTable</Name>
+				<Source><![CDATA[
+    public static AAXVendorCreatedBusinessEvent newFromVendTable(VendTable _vendTable)
+    {
+        AAXVendorCreatedBusinessEvent businessEvent = new AAXVendorCreatedBusinessEvent();
+        businessEvent.parmVendTable(_vendTable);
+
+        return businessEvent;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>new</Name>
+				<Source><![CDATA[
+    private void new()
+    {
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>buildContract</Name>
+				<Source><![CDATA[
+    [Wrappable(true), Replaceable(true)]
+    public BusinessEventsContract buildContract()
+    {
+        return AAXVendorCreatedBusinessEventContract::newFromVendTable(vendTable);
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

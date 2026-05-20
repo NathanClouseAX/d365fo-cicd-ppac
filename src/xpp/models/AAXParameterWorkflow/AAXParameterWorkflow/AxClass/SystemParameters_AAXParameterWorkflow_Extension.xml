@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>SystemParameters_AAXParameterWorkflow_Extension</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// Chain-of-command extension on the SystemParameters table. Intercepts the find() method
+/// to automatically create a default version if none exists, and to auto-publish the
+/// effective version whenever it differs from what's currently applied. This is the core
+/// mechanism that makes versioned parameter activation date-driven and automatic.
+/// </summary>
+[ExtensionOf(tableStr(SystemParameters))]
+final class SystemParameters_AAXParameterWorkflow_Extension
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>find</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Intercepts every SystemParameters::find() call to ensure versioned parameters are applied.
+    /// This runs frequently throughout the system, so the publish path only executes when the
+    /// effective version's RecId differs from what's currently stored on the SystemParameters record.
+    /// </summary>
+    public client server static SystemParameters find(boolean _forUpdate)
+    {
+        SystemParameters SystemParameters;
+
+        SystemParameters = next find(_forUpdate);
+
+        // Ensure at least one version record exists (first-run bootstrap)
+        if(SystemParameters)
+        {
+            AAXSystemParametersVersion::CreateDefault();
+        }
+
+        // Find the version whose date range covers today
+        AAXSystemParametersVersion AAXSystemParametersVersion = AAXSystemParametersVersion::getEffectiveVersionForDate();
+
+        if(AAXSystemParametersVersion)
+        {
+            // Only publish if the effective version is different from what's currently applied
+            if(SystemParameters.AAXSystemParametersVersionRecId != AAXSystemParametersVersion.RecId)
+            {
+                ttsbegin;
+                Args args = new Args();
+                args.record(AAXSystemParametersVersion);
+                AAXParameterPublish::main(args);
+                ttscommit;
+            }
+        }
+
+        return SystemParameters;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

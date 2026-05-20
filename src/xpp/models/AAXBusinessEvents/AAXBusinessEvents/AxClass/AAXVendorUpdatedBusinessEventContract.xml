@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXVendorUpdatedBusinessEventContract</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// The data contract for a <c>VendorCreatedBusinessEvent</c>.
+/// </summary>
+[DataContract]
+public final class AAXVendorUpdatedBusinessEventContract extends BusinessEventsContract
+{
+    private DataAreaId vendorLegalEntity;
+    private VendAccount vendorAccountNumber;
+    private DirPartyRecId vendorParty;
+  
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>newFromVendTable</Name>
+				<Source><![CDATA[
+    public static AAXVendorUpdatedBusinessEventContract newFromVendTable(VendTable _vendTable)
+    {
+        var contract = new AAXVendorUpdatedBusinessEventContract();
+        contract.initialize(_vendTable);
+
+        return contract;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>initialize</Name>
+				<Source><![CDATA[
+    private void initialize(VendTable _vendTable)
+    {
+        vendorLegalEntity = _vendTable.DataAreaId;
+        vendorAccountNumber = _vendTable.AccountNum;
+        vendorParty = _vendTable.Party;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>new</Name>
+				<Source><![CDATA[
+    private void new()
+    {
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>parmVendorParty</Name>
+				<Source><![CDATA[
+    [DataMember('vendorParty'), BusinessEventsDataMember("Vendor Party")]
+    public DirPartyRecId parmVendorParty(DirPartyRecId _vendorParty = vendorParty)
+    {
+        vendorParty = _vendorParty;
+
+        return vendorParty;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>parmVendorAccountNumber</Name>
+				<Source><![CDATA[
+    [DataMember('vendorAccountNumber'), BusinessEventsDataMember("Vendor Account Number")]
+    public VendAccount parmVendorAccountNumber(VendAccount _vendorAccountNumber = vendorAccountNumber)
+    {
+        vendorAccountNumber = _vendorAccountNumber;
+
+        return vendorAccountNumber;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>parmVendorLegalEntity</Name>
+				<Source><![CDATA[
+    [DataMember('vendorLegalEntity'), BusinessEventsDataMember("Vendor Legal Entity")]
+    public DataAreaId parmVendorLegalEntity(DataAreaId _vendorLegalEntity = vendorLegalEntity)
+    {
+        vendorLegalEntity = _vendorLegalEntity;
+
+        return vendorLegalEntity;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

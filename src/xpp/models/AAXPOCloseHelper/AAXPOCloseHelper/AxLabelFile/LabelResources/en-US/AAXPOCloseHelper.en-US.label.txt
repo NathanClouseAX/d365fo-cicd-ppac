@@ -1,0 +1,7 @@
+﻿NewLabel0=Label files created on 10/25/2019 20:22:34 for label file Id AAXPOCloseHelper and language en-US
+ ;Label file comment - see above label
+AAXPOCloseHelperCancelRemainder=Cancel Remainder
+AAXPOCloseHelperCancelRemainderHelp=Cancel remainder on line purchase line to advance the status
+AAXPOCloseHelperCancelError=Purchase Order %1, Line %2, Item %3, Lot Id %4 encountered an error and could not be cancelled.
+AAXPOCloseHelperOpenLineMaintenance=Open Purchase Line Maintenance
+AAXPOCloseHelperOpenLineMaintenanceHelp=Perform Bulk Operations on Open Purchase Lines

@@ -1,0 +1,58 @@
+---
+title: Sprint Workflow - End to End
+---
+flowchart TD
+    subgraph "During Sprint"
+        DEV1[Developer A<br/>feature/inventory]
+        DEV2[Developer B<br/>feature/payments]
+        SANDBOX1[Ephemeral Sandbox A]
+        SANDBOX2[Ephemeral Sandbox B]
+        PR1[PR to main]
+        PR2[PR to main]
+        INTEG1[Integration Test<br/>Provision → Deploy → Test → Teardown]
+        INTEG2[Integration Test<br/>Provision → Deploy → Test → Teardown]
+        MAIN[main<br/>Accumulates validated sprint work]
+    end
+
+    subgraph "Sprint End"
+        CUT[Cut release/sprint-12<br/>from main]
+    end
+
+    subgraph "Validation"
+        BUILD_R[build.yml<br/>Artifact created]
+        DEPLOY_UAT[deploy.yml → UAT]
+        DEPLOY_DM[deploy.yml → DM]
+        BIZ[Business users<br/>validate in UAT]
+    end
+
+    subgraph "Go-Live"
+        RELEASE_GOLD[release.yml → GOLD]
+        RELEASE_PROD[release.yml → PROD]
+        LIVE[Production Live]
+    end
+
+    DEV1 --> SANDBOX1
+    DEV2 --> SANDBOX2
+    SANDBOX1 --> PR1
+    SANDBOX2 --> PR2
+    PR1 --> INTEG1
+    PR2 --> INTEG2
+    INTEG1 -->|pass| MAIN
+    INTEG2 -->|pass| MAIN
+
+    MAIN --> CUT
+    CUT --> BUILD_R
+    BUILD_R --> DEPLOY_UAT
+    DEPLOY_UAT --> DEPLOY_DM
+    DEPLOY_UAT --> BIZ
+    DEPLOY_DM --> RELEASE_GOLD
+    BIZ -.->|sign-off| RELEASE_GOLD
+    RELEASE_GOLD -->|approval| RELEASE_PROD
+    RELEASE_PROD --> LIVE
+
+    style MAIN fill:#e8f5e9,stroke:#4caf50
+    style CUT fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
+    style LIVE fill:#e8f5e9,stroke:#4caf50,stroke-width:3px
+    style BUILD_R fill:#e3f2fd,stroke:#2196f3
+    style INTEG1 fill:#e3f2fd,stroke:#2196f3
+    style INTEG2 fill:#e3f2fd,stroke:#2196f3

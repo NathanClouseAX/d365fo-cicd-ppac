@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXParameterActivate</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// Entry point for the Activate action menu item. Dispatches to the appropriate
+/// type-specific activation class (currently only SystemParameters) and refreshes
+/// the calling form's data source.
+/// </summary>
+internal final class AAXParameterActivate
+{
+}
+
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>main</Name>
+				<Source><![CDATA[
+    public static void main(Args _args)
+    {
+        AAXParameterActivate_SystemParameters AAXParameterActivate_SystemParameters = new AAXParameterActivate_SystemParameters();
+
+        AAXParameterActivate_SystemParameters.run(_args.record());
+
+        // Refresh the calling form so the status change is visible immediately
+        FormDataSource fds = FormDataUtil::getFormDataSource(_args.record());
+        if(fds)
+        {
+            fds.research(true);
+        }
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

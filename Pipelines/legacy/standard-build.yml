@@ -1,0 +1,108 @@
+# LEGACY: LCS-era X++ build pipeline — kept for comparison.
+# See ../build-deploy.yml for the current PPAC approach.
+#
+# Original: https://docs.microsoft.com/en-us/dynamics365/fin-ops-core/dev-itpro/dev-tools/hosted-build-automation
+# Change the name of the build to a 4-digit version number to be used for model versioning
+name: $(Date:yy.MM.dd)$(Rev:.r)
+
+# Bring in the separate "nugets" repo that holds nuget.config & packages.config
+resources:
+  repositories:
+    - repository: nugets
+      type: git
+      name: D365/nugets     
+      
+      
+trigger:
+  - main
+pr: none
+
+pool:
+  vmImage: 'windows-2019'
+  demands:
+    - msbuild
+    - visualstudio
+
+
+variables:
+  App1Package: 'Microsoft.Dynamics.AX.Application1.DevALM.BuildXpp'
+  App2Package: 'Microsoft.Dynamics.AX.Application2.DevALM.BuildXpp'
+  AppSuitePackage: 'Microsoft.Dynamics.AX.ApplicationSuite.DevALM.BuildXpp'
+  PlatPackage: 'Microsoft.Dynamics.AX.Platform.DevALM.BuildXpp'
+  ToolsPackage: 'Microsoft.Dynamics.AX.Platform.CompilerPackage'
+  MetadataPath: '$(Build.SourcesDirectory)'
+  NugetConfigsPath: '$(Build.SourcesDirectory)'
+  NugetsPath: '$(Pipeline.Workspace)\NuGets'
+steps:
+# Install NuGet and use -ExcludeVersion option to avoid paths containing version numbers
+- task: NuGetCommand@2
+  displayName: 'NuGet custom install Packages'
+  inputs:
+    command: custom
+    arguments: 'install -Noninteractive $(NugetConfigsPath)\packages.config -ConfigFile $(NugetConfigsPath)\nuget.config -Verbosity Detailed -ExcludeVersion -OutputDirectory "$(NugetsPath)"'
+# Use the custom build number y.m.d.rev as the model version
+# Default updates only VAR layer and above
+- task: XppUpdateModelVersion@0
+  displayName: 'Update Model Version'
+  inputs:
+    XppSourcePath: '$(MetadataPath)'
+    VersionNumber: '$(Build.BuildNumber)'
+
+- powershell: |
+      Write-Host "=== EXPANDED PARAMS ==="
+      Write-Host ("BuildTasksDirectory = " + "$(NugetsPath)\$(ToolsPackage)\DevAlm")
+      Write-Host ("MetadataDirectory    = " + "$(MetadataPath)")
+      Write-Host ("FrameworkDirectory   = " + "$(NugetsPath)\$(ToolsPackage)")
+      Write-Host ""
+      Write-Host "ReferenceFolder values:"
+      Write-Host ("  " + "$(NugetsPath)\$(PlatPackage)\ref\net40")
+      Write-Host ("  " + "$(NugetsPath)\$(App1Package)\ref\net40")
+      Write-Host ("  " + "$(NugetsPath)\$(App2Package)\ref\net40")
+      Write-Host ("  " + "$(NugetsPath)\$(AppSuitePackage)\ref\net40")
+      Write-Host ("  " + "$(MetadataPath)")
+      Write-Host ("  " + "$(Build.BinariesDirectory)")
+      Write-Host ""
+      Write-Host ("ReferencePath        = " + "$(NugetsPath)\$(ToolsPackage)")
+      Write-Host ("OutputDirectory      = " + "$(Build.BinariesDirectory)")
+  displayName: 'DEBUG: Print MSBuild arguments clearly'
+  condition: always()
+
+# Build using MSBuild 16 (VS 2019)
+# Provide the needed paths, including semi-colon separated list of reference folders
+# /p:ReferenceFolder are metadata folders containing other (compiled) X++ packages that are referenced
+# /p:ReferencePath are folders containing non-X++ assemblies referenced (aside from one already in the output folder for the package)
+- task: VSBuild@1
+  displayName: 'Build solution **\*.sln'
+  inputs:
+    solution: '**/*.sln'
+    vsVersion: '16.0'
+    msbuildArgs: '/p:BuildTasksDirectory="$(NugetsPath)\$(ToolsPackage)\DevAlm" /p:MetadataDirectory="$(MetadataPath)" /p:FrameworkDirectory="$(NuGetsPath)\$(ToolsPackage)" /p:ReferenceFolder="$(NuGetsPath)\$(PlatPackage)\ref\net40;$(NuGetsPath)\$(App1Package)\ref\net40;$(NuGetsPath)\$(App2Package)\ref\net40;$(NuGetsPath)\$(AppSuitePackage)\ref\net40;$(MetadataPath);$(Build.BinariesDirectory)" /p:ReferencePath="$(NuGetsPath)\$(ToolsPackage)" /p:OutputDirectory="$(Build.BinariesDirectory)"'
+# Copy the compiler log files to the drop artifacts
+- task: CopyFiles@2
+  displayName: 'Copy X++ Compile Log Files to: $(Build.ArtifactStagingDirectory)\Logs'
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)'
+    Contents: |
+      **\Dynamics.AX.*.xppc.*
+      **\Dynamics.AX.*.labelc.*
+      **\Dynamics.AX.*.reportsc.*
+    TargetFolder: '$(build.ArtifactStagingDirectory)\Logs'
+  condition: succeededOrFailed()
+# For packaging we need NuGet installed, with a version <3.4.0
+- task: NuGetToolInstaller@0
+  displayName: 'Use NuGet 3.3.0'
+  inputs:
+    versionSpec: 3.3.0
+- task: XppCreatePackage@0
+  displayName: 'Create Deployable Package'
+  inputs:
+    XppToolsPath: '$(NuGetsPath)\$(ToolsPackage)'
+# Enable this task to add a license file to the package
+- task: XppAddLicenseToPackage@0
+  displayName: 'Add Licenses to Deployable Package'
+  enabled: false
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: drop'
+  inputs:
+    PathtoPublish: '$(build.artifactstagingdirectory)'
+  condition: succeededOrFailed()

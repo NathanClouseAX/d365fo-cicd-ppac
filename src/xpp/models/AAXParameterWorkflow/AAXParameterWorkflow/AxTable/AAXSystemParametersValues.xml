@@ -1,0 +1,477 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxTable xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXSystemParametersValues</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+public class AAXSystemParametersValues extends common
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>find</Name>
+				<Source><![CDATA[
+    /// <summary>
+    ///    Finds a record in the <c>SystemParameters</c> table.
+    /// </summary>
+    /// <param name="_forUpdate">
+    ///    A Boolean value that indicates whether to read the record for update; optional.
+    /// </param>
+    /// <returns>
+    ///    A record in the <c>SystemParameters</c> table.
+    /// </returns>
+    /// <remarks>
+    ///    This method inserts a new record into the <c>SystemParameters</c> table if one does not exist.
+    /// </remarks>
+    public static AAXSystemParametersValues find(RecId _AAXSystemParametersVersionRecId, boolean _forUpdate = false)
+    {
+        AAXSystemParametersValues    AAXSystemParametersValues;
+
+        AAXSystemParametersValues.selectForUpdate(_forUpdate);
+
+        select firstonly AAXSystemParametersValues
+            where AAXSystemParametersValues.AAXSystemParametersVersion == _AAXSystemParametersVersionRecId;
+
+        return AAXSystemParametersValues;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>createDefault</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Snapshots current SystemParameters values into a version value record. Uses
+    /// AAXParameterUtil::copyFromParameterToVersion for bulk field copy by name, then
+    /// manually sets the user timeout which comes from SecurityConfigProvider rather
+    /// than a table field. Idempotent: skips if a value record already exists for this version.
+    /// </summary>
+    /// <param name = "_AAXSystemParametersVersionRecId">RecId of the parent version</param>
+    public static void createDefault(RecId _AAXSystemParametersVersionRecId)
+    {
+        const int MillisecondsPerSecond = 1000;
+
+        AAXSystemParametersValues AAXSystemParametersValues;
+        SystemParameters systemParameters;
+
+        if(!AAXSystemParametersValues::exists(_AAXSystemParametersVersionRecId))
+        {
+            systemParameters = SystemParameters::find();
+
+            AAXSystemParametersValues.AAXSystemParametersVersion = AAXSystemParametersVersion::find(_AAXSystemParametersVersionRecId).RecId;
+
+            // Bulk copy matching fields from SystemParameters to the version value record
+            AAXSystemParametersValues = AAXParameterUtil::copyFromParameterToVersion(systemParameters, AAXSystemParametersValues);
+
+            // User timeout is stored in SecurityConfigProvider, not on the SystemParameters table
+            AAXSystemParametersValues.userTimeoutInSeconds = SecurityConfigProvider::getListUsersWaitTimeInMilliseconds() / MillisecondsPerSecond;
+
+            AAXSystemParametersValues.insert();
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>exists</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// check if a record exists
+    /// </summary>
+    /// <param name = "_AAXSystemParametersVersionRecId">RecId</param>
+    /// <returns>boolean</returns>
+    public static boolean exists(RecId _AAXSystemParametersVersionRecId)
+    {
+        return AAXSystemParametersValues::find(_AAXSystemParametersVersionRecId).RecId != 0;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>validateField</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// validates the fields of the <c>AAXSystemParametersValues</c> table
+    /// </summary>
+    /// <param name = "_fieldIdToCheck">FieldId</param>
+    /// <returns>boolean</returns>
+    public boolean validateField(FieldId _fieldIdToCheck)
+    {
+        boolean ret;
+    
+        ret = super(_fieldIdToCheck);
+
+        switch(_fieldIdToCheck)
+        {
+            case fieldNum(AAXSystemParametersValues, userTimeoutInSeconds):
+                int valueInSeconds = this.userTimeoutInSeconds;
+
+                int minValueInSeconds = Microsoft.Dynamics.AX.Security.SharedUtility.SecurityConfigHelper::ListUsersWaitTimeInMillisecondsMinimumValue / 1000;
+                int maxValueInSeconds = Microsoft.Dynamics.AX.Security.SharedUtility.SecurityConfigHelper::ListUsersWaitTimeInMillisecondsMaximumValue / 1000;
+
+                boolean isValid = valueInSeconds >= minValueInSeconds && valueInSeconds <= maxValueInSeconds;
+
+                if (!isValid)
+                {
+                    warning(strFmt("@Security:ListUsersWaitTimeOverrideWarning", minValueInSeconds, maxValueInSeconds));
+                }
+
+                ret = ret && isValid;
+                break;
+            // Add custom field validations here if needed
+            default:
+                ;
+        }
+    
+        return ret;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+	<DeveloperDocumentation>@SYS324472</DeveloperDocumentation>
+	<FormRef>SystemParameters</FormRef>
+	<Label>@SYS153387</Label>
+	<OperationalDomain>Shared</OperationalDomain>
+	<SubscriberAccessLevel>
+		<Read>Allow</Read>
+	</SubscriberAccessLevel>
+	<TableGroup>Parameter</TableGroup>
+	<AllowRowVersionChangeTracking>Yes</AllowRowVersionChangeTracking>
+	<CacheLookup>EntireTable</CacheLookup>
+	<ModifiedBy>Yes</ModifiedBy>
+	<ModifiedDateTime>Yes</ModifiedDateTime>
+	<Modules>SystemAdministration</Modules>
+	<ReplacementKey>AAXSystemParametersVersionIdx</ReplacementKey>
+	<SaveDataPerCompany>No</SaveDataPerCompany>
+	<TableContents>DefaultData</TableContents>
+	<DeleteActions />
+	<FieldGroups>
+		<AxTableFieldGroup>
+			<Name>AutoReport</Name>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>SystemLanguageId</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>ChartOfAccountsDelimiter</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoLookup</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoIdentification</Name>
+			<AutoPopulate>Yes</AutoPopulate>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoSummary</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoBrowse</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>ChartOfAccounts</Name>
+			<Label>@SYS4589</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>ChartOfAccountsDelimiter</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>Currency</Name>
+			<Label>@SYS7572</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>SystemCurrencyCode</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>SystemExchangeRateType</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>SSRSReport_CN</Name>
+			<Label>@GLS220077</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>SRSMaxRow_CN</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>SystemLanguage</Name>
+			<Label>@SYS153383</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>SystemLanguageId</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>SystemLineNumber</Name>
+			<Label>@SYS313226</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>SystemLineNumberIncrement</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>Thailand</Name>
+			<Label>@SYS93712</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>ThaiSoftwareSeqNo</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>QueryOptions</Name>
+			<Label>@SYS86319</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>UseLegacyQueryRelations</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>ODataOptions</Name>
+			<Label>@ApplicationFoundation:OData</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>ODataAllowNullForEnumKeyValue</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>ODataBuildMetadataCacheOnAosStartup</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>Certificates</Name>
+			<Label>@KeyVault:TableGroupLabel_Certificates</Label>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>UseAdvCertificateStore</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+	</FieldGroups>
+	<Fields>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>ChartOfAccountsDelimiter</Name>
+			<AllowEdit>No</AllowEdit>
+			<AllowEditOnCreate>No</AllowEditOnCreate>
+			<AssetClassification>Customer Content</AssetClassification>
+			<IsObsolete>Yes</IsObsolete>
+			<Visible>No</Visible>
+			<EnumType>DimensionLedgerAccountDelimiter</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>Key</Name>
+			<AllowEdit>No</AllowEdit>
+			<AllowEditOnCreate>No</AllowEditOnCreate>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>ParametersKey</ExtendedDataType>
+			<Visible>No</Visible>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>SRSMaxRow_CN</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<CountryRegionCodes>CN</CountryRegionCodes>
+			<ExtendedDataType>SRSMaxRow_CN</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>SystemLanguageId</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>InstalledLanguageId</ExtendedDataType>
+			<IgnoreEDTRelation>Yes</IgnoreEDTRelation>
+			<Label>@SYS153383</Label>
+			<Mandatory>Yes</Mandatory>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>SystemLineNumberIncrement</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>SystemLineNumberIncrement</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>ThaiSoftwareSeqNo</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>TaxThaiSofwareSequenceNo</ExtendedDataType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>SystemLegalTermsURL</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>URL</ExtendedDataType>
+			<Label>@ApplicationFoundation:OrganizationLegalTermsLocation</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>SystemPrivacyStatementURL</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<ExtendedDataType>URL</ExtendedDataType>
+			<Label>@ApplicationFoundation:OrganizationPrivacyStatementLocation</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>UseLegacyQueryRelations</Name>
+			<Label>@ApplicationFoundation:UseLegacyModeForSysQueryRelations</Label>
+			<EnumType>NoYes</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>ODataAllowNullForEnumKeyValue</Name>
+			<HelpText>@ApplicationFoundation:ODataAllowNullForEnumKeyValueHelpText</HelpText>
+			<Label>@ApplicationFoundation:ODataAllowNullForEnumKeyValue</Label>
+			<EnumType>NoYes</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>ODataBuildMetadataCacheOnAosStartup</Name>
+			<HelpText>@ApplicationFoundation:ODataBuildMetadataCacheOnAosStartupHelpText</HelpText>
+			<Label>@ApplicationFoundation:ODataBuildMetadataCacheOnAosStartup</Label>
+			<EnumType>NoYes</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt64">
+			<Name>AAXSystemParametersVersion</Name>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>PowerPortalAnonymousUserId</Name>
+			<ExtendedDataType>UserId</ExtendedDataType>
+			<Label>@CDSVirtualEntity:CDSVirtualEntity_PowerPortalAnonymousUser</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldString">
+			<Name>SystemCurrencyCode</Name>
+			<ExtendedDataType>CurrencyCodeBase</ExtendedDataType>
+			<IgnoreEDTRelation>Yes</IgnoreEDTRelation>
+			<Label>@CurrencyExchange:Currency_TableFieldLabel_SystemParametersCurrencyCodeLabel</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt64">
+			<Name>SystemExchangeRateType</Name>
+			<ExtendedDataType>ExchangeRateTypeId</ExtendedDataType>
+			<Label>@CurrencyExchange:Currency_TableFieldLabel_SystemParametersExchangeRateTypeLabel</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>UseAdvCertificateStore</Name>
+			<ExtendedDataType>UseAdvCertificateStore</ExtendedDataType>
+			<EnumType>NoYes</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>WebClientStatefulSessionTimeoutKey</Name>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>userTimeoutInSeconds</Name>
+		</AxTableField>
+	</Fields>
+	<FullTextIndexes />
+	<Indexes>
+		<AxTableIndex>
+			<Name>AAXSystemParametersVersionIdx</Name>
+			<AlternateKey>Yes</AlternateKey>
+			<Fields>
+				<AxTableIndexField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableIndexField>
+			</Fields>
+		</AxTableIndex>
+	</Indexes>
+	<Mappings />
+	<Relations>
+		<AxTableRelation xmlns=""
+			i:type="AxTableRelationForeignKey">
+			<Name>LanguageTable</Name>
+			<Cardinality>ZeroOne</Cardinality>
+			<EntityRelationshipRole>@SYS153383</EntityRelationshipRole>
+			<RelatedTable>LanguageTable</RelatedTable>
+			<RelatedTableCardinality>ExactlyOne</RelatedTableCardinality>
+			<RelatedTableRole>LanguageTable</RelatedTableRole>
+			<RelationshipType>Association</RelationshipType>
+			<Role>LanguageTable_SystemParameters</Role>
+			<UseDefaultRoleNames>No</UseDefaultRoleNames>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>SystemLanguageId</Name>
+					<Field>SystemLanguageId</Field>
+					<RelatedField>LanguageId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+			<Index>Key</Index>
+		</AxTableRelation>
+		<AxTableRelation>
+			<Name>AAXSystemParametersVersion</Name>
+			<Cardinality>ExactlyOne</Cardinality>
+			<OnDelete>Cascade</OnDelete>
+			<RelatedTable>AAXSystemParametersVersion</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>AAXSystemParametersVersion</Name>
+					<Field>AAXSystemParametersVersion</Field>
+					<RelatedField>RecId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+		<AxTableRelation xmlns=""
+			i:type="AxTableRelationForeignKey">
+			<Name>Currency</Name>
+			<Cardinality>ZeroOne</Cardinality>
+			<RelatedTable>Currency</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>SystemCurrencyCode</Name>
+					<Field>SystemCurrencyCode</Field>
+					<RelatedField>CurrencyCode</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+		<AxTableRelation xmlns=""
+			i:type="AxTableRelationForeignKey">
+			<Name>ExchangeRateType</Name>
+			<Cardinality>ZeroOne</Cardinality>
+			<EDTRelation>Yes</EDTRelation>
+			<RelatedTable>ExchangeRateType</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>SystemExchangeRateType</Name>
+					<Field>SystemExchangeRateType</Field>
+					<RelatedField>RecId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+	</Relations>
+	<StateMachines />
+</AxTable>

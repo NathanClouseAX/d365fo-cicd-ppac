@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>PurchLine_AAXPOCloseHelper_Extension</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+[ExtensionOf(tableStr(PurchLine))]
+final class PurchLine_AAXPOCloseHelper_Extension
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>AAXUpdateShipLine</Name>
+				<Source><![CDATA[
+    static void AAXUpdateShipLine(
+        PurchLine purchLine,
+        PurchLine purchLine_Orig,
+        boolean _force = false)
+    {
+        //PurchLine::ITMUpdateShipLine(PurchLine, purchLine_Orig, _force);
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

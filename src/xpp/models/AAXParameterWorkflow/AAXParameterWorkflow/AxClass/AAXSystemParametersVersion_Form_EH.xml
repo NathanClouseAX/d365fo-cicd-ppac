@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXSystemParametersVersion_Form_EH</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// Form event handler for the AAXSystemParametersVersion form.
+/// Handles form-level events that cannot be done via CoC extensions on the form class.
+/// </summary>
+internal final class AAXSystemParametersVersion_Form_EH
+{
+}
+
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>AAXSystemParametersVersionForm_OnInitializing</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Shows the PortalUsers tab on the version form if the CDSVirtualEntity flight is enabled.
+    /// The tab is hidden by default in the form design and only relevant when Dataverse
+    /// virtual entity integration is active.
+    /// </summary>
+    [FormEventHandler(formStr(AAXSystemParametersVersion), FormEventType::Initializing),
+    SuppressBPWarning('BPParameterNotUsed', 'Parameter required by the event interface.')]
+    public static void AAXSystemParametersVersionForm_OnInitializing(xFormRun _sender, FormEventArgs _e)
+    {
+        SysFlighting sysFlighting;
+        select * from sysFlighting where sysFlighting.FlightName == 'CDSVirtualEntityFlighting';
+
+        if (sysFlighting.RecId != 0)
+        {
+            FormBuildDesign formBuildDesign = _sender.form().design();
+            formBuildDesign.control('PortalUsers').visible(true);
+        }
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>

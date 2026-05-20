@@ -1,0 +1,95 @@
+# delete-environment.yml
+# Deletes a PPAC environment by GUID or display name.
+# Use for cleaning up ephemeral environments (e.g., feature branch sandboxes).
+trigger: none
+pr: none
+
+name: delete-environment-$(Date:yyyyMMdd).$(Rev:r)
+
+parameters:
+  - name: environmentId
+    displayName: 'Environment ID (GUID — leave blank to resolve by display name)'
+    type: string
+    default: ''
+
+  - name: environmentDisplayName
+    displayName: 'Environment display name (used when ID is blank)'
+    type: string
+    default: ''
+
+  - name: endpoint
+    displayName: 'Power Platform endpoint'
+    type: string
+    default: 'prod'
+    values:
+      - prod
+      - preview
+      - gcc
+      - usgov
+      - usgovhigh
+      - dod
+      - china
+
+pool:
+  vmImage: windows-2022
+
+variables:
+  - group: PowerPlatform-Auth
+
+stages:
+- stage: Delete
+  displayName: 'Delete PPAC Environment'
+  jobs:
+  - job: DeleteEnv
+    displayName: 'Delete environment'
+    steps:
+      - checkout: none
+
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $envId       = '${{ parameters.environmentId }}'
+          $displayName = '${{ parameters.environmentDisplayName }}'
+          $endpoint    = '${{ parameters.endpoint }}'
+
+          $tenantId      = "$(PP_TENANT_ID)"
+          $applicationId = "$(PP_APPLICATION_ID)"
+          $clientSecret  = "$(PP_CLIENT_SECRET)"
+
+          if ([string]::IsNullOrWhiteSpace($clientSecret)) {
+            throw "PP_CLIENT_SECRET is empty. Check variable group permissions."
+          }
+
+          Write-Host "Installing PowerApps Administration module..."
+          Install-Module Microsoft.PowerApps.Administration.PowerShell -Force -Scope CurrentUser -AllowClobber
+
+          Write-Host "Authenticating to Power Platform endpoint '$endpoint'..."
+          Add-PowerAppsAccount `
+            -Endpoint $endpoint `
+            -TenantID $tenantId `
+            -ApplicationId $applicationId `
+            -ClientSecret $clientSecret
+
+          if ([string]::IsNullOrWhiteSpace($envId)) {
+            if ([string]::IsNullOrWhiteSpace($displayName)) {
+              throw "Either environmentId or environmentDisplayName is required."
+            }
+
+            Write-Host "Looking for environment with DisplayName='$displayName'..."
+            $env = Get-AdminPowerAppEnvironment |
+              Where-Object { $_.DisplayName -eq $displayName } |
+              Select-Object -First 1
+
+            if (-not $env -or -not $env.EnvironmentName) {
+              throw "Environment not found with DisplayName='$displayName'."
+            }
+
+            $envId = $env.EnvironmentName
+            Write-Host "Resolved environment GUID: $envId"
+          }
+
+          Write-Host "Deleting environment: $envId"
+          Remove-AdminPowerAppEnvironment -EnvironmentName $envId
+
+          Write-Host "Environment deletion initiated: $envId"
+        displayName: 'Delete PPAC environment'

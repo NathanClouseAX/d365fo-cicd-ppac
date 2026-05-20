@@ -1,0 +1,48 @@
+---
+title: Deploy Template - Two-Job Pattern
+---
+flowchart TD
+    subgraph "Job 1: Submit & Wait"
+        NOTIFY_START[Teams: Deploy started]
+        TOOLS1[Install Power Platform Tools]
+        WHOAMI[Validate Service Connection<br/>PowerPlatformWhoAmi]
+        READY{Environment Ready?}
+        POLL_READY[Poll PPAC API<br/>every 30s, up to 30 min]
+        DEPLOY[PowerPlatformDeployPackage<br/>Synchronous wait up to 3h]
+    end
+
+    subgraph "Job 2: Verify"
+        TOOLS2[Install Power Platform Tools]
+        TOKEN[Acquire PPAC Management API token]
+        RESOLVE[Resolve environment GUID<br/>from service connection]
+        QUERY[Query latest operation<br/>api.powerplatform.com]
+        EVAL{Operation State?}
+        SUCCESS[Stage passes]
+        FAIL[Stage fails<br/>Blocks downstream]
+        NOTIFY_OK[Teams: Deploy succeeded]
+        NOTIFY_FAIL[Teams: Deploy failed]
+    end
+
+    NOTIFY_START --> TOOLS1
+    TOOLS1 --> WHOAMI
+    WHOAMI --> READY
+    READY -->|Not Ready / Servicing| POLL_READY
+    POLL_READY --> READY
+    READY -->|Ready| DEPLOY
+
+    DEPLOY -->|Job 2 starts| TOOLS2
+    TOOLS2 --> TOKEN
+    TOKEN --> RESOLVE
+    RESOLVE --> QUERY
+    QUERY --> EVAL
+    EVAL -->|Succeeded / Completed| SUCCESS
+    EVAL -->|Running / Queued| FAIL
+    EVAL -->|Failed / Other| FAIL
+    SUCCESS --> NOTIFY_OK
+    FAIL --> NOTIFY_FAIL
+
+    style READY fill:#fff3e0,stroke:#ff9800
+    style EVAL fill:#fff3e0,stroke:#ff9800
+    style SUCCESS fill:#e8f5e9,stroke:#4caf50
+    style FAIL fill:#fce4ec,stroke:#f44336
+    style DEPLOY fill:#e3f2fd,stroke:#2196f3

@@ -1,0 +1,44 @@
+---
+title: LCS vs PPAC Comparison
+---
+flowchart LR
+    subgraph "LCS (Legacy)"
+        direction TB
+        L_BUILD[Build VM optional<br/>~$500/mo if used]
+        L_HOSTED[Hosted agents also<br/>supported via NuGet]
+        L_UPLOAD[Upload to<br/>Asset Library]
+        L_PORTAL[Manual apply to prod<br/>or limited API]
+        L_WAIT[Wait...<br/>Limited status API]
+        L_PROV[New envs: limited API<br/>Tier 2+ requires SKU purchase]
+
+        L_BUILD --> L_UPLOAD
+        L_HOSTED --> L_UPLOAD
+        L_UPLOAD --> L_PORTAL
+        L_PORTAL --> L_WAIT
+    end
+
+    subgraph "PPAC (This Repo)"
+        direction TB
+        P_BUILD[Hosted Agent<br/>Monthly parallel job]
+        P_ART[Pipeline Artifact<br/>Immutable]
+        P_DEPLOY[API Deploy<br/>PowerPlatformDeployPackage]
+        P_VERIFY[PPAC Management API<br/>Full status polling]
+        P_PROV[Branch push<br/>= sandbox in ~5-6 hours<br/>Automated cleanup on branch delete]
+
+        P_BUILD --> P_ART
+        P_ART --> P_DEPLOY
+        P_DEPLOY --> P_VERIFY
+    end
+
+    style L_BUILD fill:#fce4ec,stroke:#f44336
+    style L_HOSTED fill:#fff3e0,stroke:#ff9800
+    style L_UPLOAD fill:#fce4ec,stroke:#f44336
+    style L_PORTAL fill:#fce4ec,stroke:#f44336
+    style L_WAIT fill:#fce4ec,stroke:#f44336
+    style L_PROV fill:#fce4ec,stroke:#f44336
+
+    style P_BUILD fill:#e8f5e9,stroke:#4caf50
+    style P_ART fill:#e8f5e9,stroke:#4caf50
+    style P_DEPLOY fill:#e8f5e9,stroke:#4caf50
+    style P_VERIFY fill:#e8f5e9,stroke:#4caf50
+    style P_PROV fill:#e8f5e9,stroke:#4caf50

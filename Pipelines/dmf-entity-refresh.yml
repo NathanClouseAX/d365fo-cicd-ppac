@@ -1,0 +1,89 @@
+# dmf-entity-refresh.yml
+# Refreshes the DMF entity list on a F&O environment via the InitializeDataManagement OData action.
+trigger: none
+pr: none
+
+name: start-dmf-entity-refresh-$(Date:yyyyMMdd).$(Rev:r)
+
+parameters:
+  - name: finOpsBaseUrl
+    displayName: 'FinOps base URL (e.g. https://<env>.operations.dynamics.com)'
+    type: string
+    default: ''
+
+  - name: environmentLabel
+    displayName: 'Environment label (for logging)'
+    type: string
+    default: 'prod'
+
+pool:
+  vmImage: windows-2022
+
+# Store secrets in a variable group (recommended) or define as pipeline variables.
+# Variable group should contain:
+# - PP_TENANT_ID
+# - PP_APPLICATION_ID
+# - PP_CLIENT_SECRET   (secret)
+variables:
+  - group: PowerPlatform-Auth
+
+stages:
+- stage: Refresh
+  displayName: 'DMF: Initialize / Refresh Data Entities'
+  jobs:
+  - job: StartRefresh
+    displayName: 'Invoke InitializeDataManagement (OData action)'
+    steps:
+      - checkout: none
+
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $finOpsBaseUrl = "${{ parameters.finOpsBaseUrl }}".Trim()
+          if ([string]::IsNullOrWhiteSpace($finOpsBaseUrl)) {
+            throw "Parameter finOpsBaseUrl is required."
+          }
+          $finOpsBaseUrl = $finOpsBaseUrl.TrimEnd('/')
+
+          $tenantId     = "$(PP_TENANT_ID)"
+          $clientId     = "$(PP_APPLICATION_ID)"
+          $clientSecret = "$(PP_CLIENT_SECRET)"
+
+          if ([string]::IsNullOrWhiteSpace($tenantId))     { throw "PP_TENANT_ID is empty." }
+          if ([string]::IsNullOrWhiteSpace($clientId))     { throw "PP_APPLICATION_ID is empty." }
+          if ([string]::IsNullOrWhiteSpace($clientSecret)) { throw "PP_CLIENT_SECRET is empty." }
+
+          Write-Host "Starting DMF entity refresh against: $finOpsBaseUrl"
+          Write-Host "Label: ${{ parameters.environmentLabel }}"
+
+          # Entra ID token (client credentials) for the FinOps resource
+          $tokenEndpoint = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token"
+          $scope         = "$finOpsBaseUrl/.default"
+
+          $body = @{
+            client_id     = $clientId
+            client_secret = $clientSecret
+            grant_type    = "client_credentials"
+            scope         = $scope
+          }
+
+          Write-Host "Acquiring token..."
+          $tokenResp = Invoke-RestMethod -Method Post -Uri $tokenEndpoint -ContentType "application/x-www-form-urlencoded" -Body $body
+          if (-not $tokenResp.access_token) { throw "Failed to obtain access_token." }
+
+          $headers = @{
+            Authorization = "Bearer $($tokenResp.access_token)"
+            Accept        = "application/json"
+          }
+
+          # OData action to initialize DMF (refresh entity list)
+          $uri = "$finOpsBaseUrl/data/DataManagementDefinitionGroups/Microsoft.Dynamics.DataEntities.InitializeDataManagement"
+
+          Write-Host "Invoking DMF refresh action:"
+          Write-Host "POST $uri"
+
+          # Typically 204 No Content on success.
+          Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -ContentType "application/json" -Body "{}" | Out-Null
+
+          Write-Host "DMF entity refresh initialized successfully."
+        displayName: 'Start DMF entity refresh (InitializeDataManagement)'

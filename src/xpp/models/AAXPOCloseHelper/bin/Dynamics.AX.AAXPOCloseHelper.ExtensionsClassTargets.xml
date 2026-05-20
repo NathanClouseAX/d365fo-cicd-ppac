@@ -1,0 +1,3 @@
+<ExtensionClasses>
+  <ExtensionClass ExtensionClassName="PurchLine_AAXPOCloseHelper_Extension" ExtensionTargetName="PurchLine" ExtensionTargetTypeId="TableTypeId" ExtensionNestedTargetName="" />
+</ExtensionClasses>

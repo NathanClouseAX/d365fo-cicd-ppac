@@ -1,0 +1,49 @@
+# templates/teams-notify.yml
+# Uses Office 365 MessageCard format. For new implementations, consider
+# migrating to Adaptive Cards via Power Automate Workflows.
+parameters:
+  - name: title
+    type: string
+  - name: text
+    type: string
+  - name: themeColor
+    type: string
+    default: '0078D7'  # blue
+  - name: condition
+    type: string
+    default: 'succeeded()'
+
+steps:
+  - pwsh: |
+      $ErrorActionPreference = "Stop"
+
+      $webhook = "$(TeamsWebhookUrl)"
+      if ([string]::IsNullOrWhiteSpace($webhook) -or $webhook -match '^\$\(') {
+        Write-Host "TeamsWebhookUrl not set. Skipping Teams notification."
+        exit 0
+      }
+
+      $facts = @(
+        @{ name = "Pipeline"; value = "$(Build.DefinitionName)" }
+        @{ name = "Build";    value = "#$(Build.BuildNumber)" }
+        @{ name = "Branch";   value = "$(Build.SourceBranchName)" }
+        @{ name = "Commit";   value = "$(Build.SourceVersion)" }
+      )
+
+      $payload = @{
+        "@type"    = "MessageCard"
+        "@context" = "http://schema.org/extensions"
+        summary    = "${{ parameters.title }}"
+        themeColor = "${{ parameters.themeColor }}"
+        title      = "${{ parameters.title }}"
+        sections   = @(
+          @{
+            facts = $facts
+            text  = "${{ parameters.text }}"
+          }
+        )
+      } | ConvertTo-Json -Depth 10
+
+      Invoke-RestMethod -Method Post -Uri $webhook -ContentType "application/json" -Body $payload | Out-Null
+    displayName: 'Teams: ${{ parameters.title }}'
+    condition: ${{ parameters.condition }}

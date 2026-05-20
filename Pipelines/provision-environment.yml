@@ -1,0 +1,154 @@
+# provision-environment.yml
+# Provisions a PPAC environment with D365 F&O template when a feature/bug/hotfix branch is pushed.
+# Publishes env.json artifact for downstream pipelines (post-provision-copy.yml).
+
+trigger:
+  branches:
+    include:
+      - feature/*
+      - bug/*
+      - hotfix/*
+
+pr: none
+
+name: provision-pp-env-$(Date:yyyyMMdd).$(Rev:r)
+
+parameters:
+  - name: instanceDisplayName
+    displayName: 'Environment display name'
+    type: string
+    default: 'D365 F&O - Sandbox'
+
+  - name: environmentSku
+    displayName: 'Environment SKU'
+    type: string
+    default: 'Sandbox'
+    values:
+      - Production
+      - Sandbox
+      - Trial
+
+  - name: templates
+    displayName: 'Template'
+    type: string
+    default: 'D365_FinOps_Finance'
+
+  - name: locationName
+    displayName: 'Location name'
+    type: string
+    default: 'unitedstates'
+
+  - name: provisionDatabase
+    displayName: 'Provision database'
+    type: boolean
+    default: true
+
+  - name: waitUntilFinished
+    displayName: 'Wait until finished'
+    type: boolean
+    default: false
+
+  - name: devToolsEnabled
+    displayName: 'DevToolsEnabled'
+    type: boolean
+    default: true
+
+  - name: demoDataEnabled
+    displayName: 'DemoDataEnabled'
+    type: boolean
+    default: false
+
+  - name: endpoint
+    displayName: 'Power Platform endpoint'
+    type: string
+    default: 'prod'
+    values:
+      - prod
+      - preview
+      - gcc
+      - usgov
+      - usgovhigh
+      - dod
+      - china
+
+pool:
+  vmImage: windows-2022
+
+variables:
+  - group: PowerPlatform-Auth
+
+stages:
+- stage: Provision
+  displayName: Provision Power Platform Environment
+  jobs:
+  - job: ProvisionEnv
+    displayName: Provision environment
+    pool:
+      vmImage: windows-2022
+    steps:
+    - checkout: self
+
+    # Derive a friendly environment display name from the branch
+    - pwsh: |
+        $fullRef = "$(Build.SourceBranch)"          # refs/heads/feature/foo
+        $branch  = $fullRef -replace '^refs/heads/', ''
+        $display = $branch -replace '[\\/]+','-'    # feature/foo -> feature-foo
+
+        if ([string]::IsNullOrWhiteSpace($display)) {
+          $display = "${{ parameters.instanceDisplayName }}"
+          Write-Host "##[warning]Branch-derived name was empty, falling back to parameter default: $display"
+        }
+
+        Write-Host "FullRef:        $fullRef"
+        Write-Host "Branch:         $branch"
+        Write-Host "EnvDisplayName: $display"
+
+        Write-Host "##vso[task.setvariable variable=EnvDisplayName]$display"
+      displayName: "Compute environment name from branch"
+
+    # ---- Provision ----
+    - template: templates/provision-finops-environment.yml
+      parameters:
+        tenantId: '$(PP_TENANT_ID)'
+        applicationId: '$(PP_APPLICATION_ID)'
+        clientSecret: '$(PP_CLIENT_SECRET)'
+        endpoint: ${{ parameters.endpoint }}
+
+        instanceDisplayName: '$(EnvDisplayName)'
+
+        environmentSku: ${{ parameters.environmentSku }}
+        templates: ${{ parameters.templates }}
+        locationName: ${{ parameters.locationName }}
+        provisionDatabase: ${{ parameters.provisionDatabase }}
+        waitUntilFinished: ${{ parameters.waitUntilFinished }}
+
+        securityGroupId: ''
+
+        devToolsEnabled: ${{ parameters.devToolsEnabled }}
+        demoDataEnabled: ${{ parameters.demoDataEnabled }}
+
+        description: 'branch:$(Build.SourceBranch)'
+
+    # Persist info for downstream pipeline (Pipeline B)
+    - pwsh: |
+        $payload = [ordered]@{
+          branch            = "$(Build.SourceBranchName)"
+          environmentDisplayName = "$(EnvDisplayName)"
+          buildId           = "$(Build.BuildId)"
+          runUri            = "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)"
+          createdUtc        = (Get-Date).ToUniversalTime().ToString("o")
+        } | ConvertTo-Json -Depth 5
+
+        $outDir = "$(Build.ArtifactStagingDirectory)"
+        New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+        $file = Join-Path $outDir "env.json"
+        $payload | Out-File -FilePath $file -Encoding utf8
+
+        Write-Host "Wrote: $file"
+        Get-Content $file
+      displayName: "Write env.json artifact"
+
+    - publish: $(Build.ArtifactStagingDirectory)
+      artifact: env
+      displayName: "Publish artifact: env"
+

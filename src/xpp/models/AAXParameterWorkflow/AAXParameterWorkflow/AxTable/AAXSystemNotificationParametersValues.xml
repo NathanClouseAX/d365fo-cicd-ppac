@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxTable xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXSystemNotificationParametersValues</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+public class AAXSystemNotificationParametersValues extends common
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>find</Name>
+				<Source><![CDATA[
+    static AAXSystemNotificationParametersValues find(RecId _AAXSystemParametersVersionRecId, boolean _forUpdate = false)
+    {
+        AAXSystemNotificationParametersValues param;
+        param.selectForUpdate(_forUpdate);
+
+        select firstonly param
+        where param.AAXSystemParametersVersion == _AAXSystemParametersVersionRecId;
+
+        if (!param)
+        {
+            Company::createParameter(param);
+        }
+
+        return param;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>createDefault</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Snapshots current SystemNotificationParameters values (threshold settings and
+    /// retention period) into a version value record. Idempotent: skips if already exists.
+    /// </summary>
+    /// <param name = "_AAXSystemParametersVersionRecId">RecId of the parent version</param>
+    public static void createDefault(RecId _AAXSystemParametersVersionRecId)
+    {
+        AAXSystemNotificationParametersValues AAXSystemNotificationParametersValues;
+        SystemNotificationParameters SystemNotificationParameters;
+
+        if(!AAXSystemNotificationParametersValues::exists(_AAXSystemParametersVersionRecId))
+        {
+            SystemNotificationParameters = SystemNotificationParameters::find();
+
+            AAXSystemNotificationParametersValues.ActiveNotificationThresholdDefault = SystemNotificationParameters.ActiveNotificationThresholdDefault;
+            AAXSystemNotificationParametersValues.ThresholdEvaluationPeriodDefault = SystemNotificationParameters.ThresholdEvaluationPeriodDefault;
+            AAXSystemNotificationParametersValues.ThresholdHistoryRetentionPeriod = SystemNotificationParameters.ThresholdHistoryRetentionPeriod;
+            AAXSystemNotificationParametersValues.insert();
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>exists</Name>
+				<Source><![CDATA[
+    public static boolean exists(RecId _AAXSystemParametersVersionRecId)
+    {
+        return AAXSystemNotificationParametersValues::find(_AAXSystemParametersVersionRecId).RecId != 0;
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+	<SubscriberAccessLevel>
+		<Read>Allow</Read>
+	</SubscriberAccessLevel>
+	<TableGroup>Parameter</TableGroup>
+	<CacheLookup>Found</CacheLookup>
+	<ClusteredIndex>AAXSystemParametersVersionIdx</ClusteredIndex>
+	<CreateRecIdIndex>No</CreateRecIdIndex>
+	<Modules>SystemAdministration</Modules>
+	<PrimaryIndex>AAXSystemParametersVersionIdx</PrimaryIndex>
+	<SaveDataPerCompany>No</SaveDataPerCompany>
+	<DeleteActions />
+	<FieldGroups>
+		<AxTableFieldGroup>
+			<Name>AutoReport</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoLookup</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoIdentification</Name>
+			<AutoPopulate>Yes</AutoPopulate>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoSummary</Name>
+			<Fields />
+		</AxTableFieldGroup>
+		<AxTableFieldGroup>
+			<Name>AutoBrowse</Name>
+			<Fields>
+				<AxTableFieldGroupField>
+					<DataField>ActiveNotificationThresholdDefault</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>ThresholdEvaluationPeriodDefault</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>ThresholdHistoryRetentionPeriod</DataField>
+				</AxTableFieldGroupField>
+				<AxTableFieldGroupField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableFieldGroupField>
+			</Fields>
+		</AxTableFieldGroup>
+	</FieldGroups>
+	<Fields>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>ActiveNotificationThresholdDefault</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<HelpText>@ApplicationPlatform:ActiveNotificationThresholdDefaultHelpText</HelpText>
+			<Label>@ApplicationPlatform:ActiveNotificationThresholdDefaultLabel</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldEnum">
+			<Name>ThresholdEvaluationPeriodDefault</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<HelpText>@ApplicationPlatform:ThresholdEvaluationPeriodDefaulHelpText</HelpText>
+			<Label>@ApplicationPlatform:ThresholdEvaluationPeriodDefaultLabel</Label>
+			<EnumType>SystemNotificationThresholdPeriodUnit</EnumType>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt">
+			<Name>ThresholdHistoryRetentionPeriod</Name>
+			<AssetClassification>Customer Content</AssetClassification>
+			<HelpText>@ApplicationPlatform:ThresholdHistoryRetentionPeriodHelpText</HelpText>
+			<Label>@ApplicationPlatform:ThresholdHistoryRetentionPeriodLabel</Label>
+		</AxTableField>
+		<AxTableField xmlns=""
+			i:type="AxTableFieldInt64">
+			<Name>AAXSystemParametersVersion</Name>
+		</AxTableField>
+	</Fields>
+	<FullTextIndexes />
+	<Indexes>
+		<AxTableIndex>
+			<Name>AAXSystemParametersVersionIdx</Name>
+			<AlternateKey>Yes</AlternateKey>
+			<Fields>
+				<AxTableIndexField>
+					<DataField>AAXSystemParametersVersion</DataField>
+				</AxTableIndexField>
+			</Fields>
+		</AxTableIndex>
+	</Indexes>
+	<Mappings />
+	<Relations>
+		<AxTableRelation>
+			<Name>AAXSystemParametersVersion</Name>
+			<Cardinality>ExactlyOne</Cardinality>
+			<OnDelete>Cascade</OnDelete>
+			<RelatedTable>AAXSystemParametersVersion</RelatedTable>
+			<RelatedTableCardinality>ZeroOne</RelatedTableCardinality>
+			<RelationshipType>Association</RelationshipType>
+			<Constraints>
+				<AxTableRelationConstraint xmlns=""
+					i:type="AxTableRelationConstraintField">
+					<Name>AAXSystemParametersVersion</Name>
+					<Field>AAXSystemParametersVersion</Field>
+					<RelatedField>RecId</RelatedField>
+				</AxTableRelationConstraint>
+			</Constraints>
+		</AxTableRelation>
+	</Relations>
+	<StateMachines />
+</AxTable>

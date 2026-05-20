@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36518.9 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FC65038C-1B2F-41E1-A629-BED71D161FFF}") = "AAXParameterWorkflow (ISV) [Fleet Management]", "AAXParameterWorkflow\AAXParameterWorkflow.rnrproj", "{48625815-9E79-4D7D-BB0D-7241249B891E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{48625815-9E79-4D7D-BB0D-7241249B891E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{48625815-9E79-4D7D-BB0D-7241249B891E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A8BF443F-5919-4252-AC08-7A148572EC0B}
+	EndGlobalSection
+EndGlobal

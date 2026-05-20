@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AxClass xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+	<Name>AAXPurchLineClose</Name>
+	<SourceCode>
+		<Declaration><![CDATA[
+/// <summary>
+/// Main PurchLine close class
+/// </summary>
+class AAXPurchLineClose
+{
+}
+]]></Declaration>
+		<Methods>
+			<Method>
+				<Name>construct</Name>
+				<Source><![CDATA[
+    public static AAXPurchLineClose construct()
+    {
+        return new AAXPurchLineClose();
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>main</Name>
+				<Source><![CDATA[
+    public static void main(Args args)
+    {
+        MultiSelectionHelper    multiSelectionHelper;
+        AAXPurchLineOpen        AAXPurchLineOpen;
+        FormDataSource          AAXPurchLineOpen_ds;
+        AAXPurchLineClose       AAXPurchLineClose       =   AAXPurchLineClose::construct();
+
+        FormRun                 callerForm;
+        ;
+
+        if (args && args.caller() && args.record())
+        {
+            multiSelectionHelper = MultiSelectionHelper::createFromCaller(args.caller());
+
+            switch(args.record().TableId)
+            {
+                case tablenum(AAXPurchLineOpen) :
+                    AAXPurchLineOpen = args.record();
+                    AAXPurchLineOpen_ds = FormDataUtil::getFormDataSource(AAXPurchLineOpen);
+
+                    multiSelectionHelper.createQueryRanges(AAXPurchLineOpen_ds.queryBuildDataSource(), fieldstr(AAXPurchLineOpen, PurchId));
+
+                    AAXPurchLineOpen= multiSelectionHelper.getFirst();
+                    while (AAXPurchLineOpen)
+                    {
+                        AAXPurchLineClose.runPurchLine(PurchLine::findRecId(AAXPurchLineOpen.PurchLineRecId,true));
+
+                        AAXPurchLineOpen = multiSelectionHelper.getNext();
+                    }
+                    break;
+
+            }
+
+            callerForm = args.caller();
+            callerForm.dataSource().research();
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>runPurchLine</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// cancels remainder for the given purchLine buffer, pulled from PurchUpdateRemain form
+    /// </summary>
+    /// <param name = "PurchLine">purchLine buffer to be cancelled</param>
+    public void runPurchLine(PurchLine PurchLine)
+    {
+        InventQty       diffRemainPurchPhysical;
+        InventQty       diffRemainInventPhysical;
+
+        try
+        {
+            ttsbegin;
+
+            diffRemainPurchPhysical = 0;
+            diffRemainInventPhysical = PurchLine.calcQtyOrdered(diffRemainPurchPhysical);
+
+            PurchLine.RemainPurchPhysical  = 0;
+            PurchLine.RemainInventPhysical = PurchLine.calcQtyOrdered(PurchLine.RemainPurchPhysical);
+
+            if (PurchLine.validateWrite() && PurchLine.purchTable().checkUpdate())
+            {
+                InterCompanyUpdateRemPhys::synchronize(
+                        PurchLine,
+                        diffRemainInventPhysical,
+                        diffRemainPurchPhysical);
+
+                PurchLine.write();
+                    
+                if (diffRemainPurchPhysical)
+                {
+                    SysDictClass  dictClass;
+                    Object        instance;
+
+                    dictClass = new SysDictClass(className2Id('PurchLine'));
+                    instance  = dictClass.makeObject();
+
+                    dictClass.callObject('ITMUpdateShipLine', instance, PurchLine, PurchLine.orig(), true);
+
+                    instance.write();
+                }
+     
+            }
+
+            ttscommit;
+        }
+        catch
+        {
+            warning(strFmt("@AAXPOCloseHelper:AAXPOCloseHelperCancelError", PurchLine.PurchId, PurchLine.LineNumber, PurchLine.ItemId, PurchLine.InventTransId));
+        }
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>updateRemainPhysical</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// update remain physical, sync intercompany and MCR
+    /// </summary>
+    /// <param name = "_callerPurchLine">purchLine buffer to be updated</param>
+    protected void updateRemainPhysical(PurchLine _callerPurchLine)
+    {
+        PurchLine       purchLineLocal = PurchLine::findRecId(_callerPurchLine.RecId);
+
+        InventQty       diffRemainPurchPhysical       = purchLineLocal.RemainPurchPhysical;
+        InventQty       diffRemainInventPhysical      = purchLineLocal.RemainInventPhysical;
+        PdsCWInventQty  diffPdsCWRemainInventPhysical = purchLineLocal.PdsCWRemainInventPhysical;
+
+        MCRSalesOrderCancellation mcrSalesOrderCancellation;
+        mcrSalesOrderCancellation = this.mcrSalesOrderCancelInit(purchLineLocal.InventRefTransId);
+
+        InterCompanyUpdateRemPhys::synchronize(_callerPurchLine,
+                                                diffRemainInventPhysical,
+                                                diffRemainPurchPhysical,
+                                                InterCompanySkipUpdate::No,
+                                                diffPdsCWRemainInventPhysical);
+
+        if (_callerPurchLine.ItemRefType  == InventRefType::Sales
+                    && _callerPurchLine.InventRefTransId
+                    && _callerPurchLine.isDropShipment())
+        {
+            _callerPurchLine.reread();
+            _callerPurchLine.RemainPurchPhysical         = 0;
+            _callerPurchLine.RemainInventPhysical        = 0;
+            _callerPurchLine.PdsCWRemainInventPhysical   = 0;
+        }
+        _callerPurchLine.write();
+
+        _callerPurchLine.purchTable().updateBackStatus();
+
+        this.mcrSalesOrderCancel(mcrSalesOrderCancellation, purchLineLocal.InventRefTransId);
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>mcrSalesOrderCancelInit</Name>
+				<Source><![CDATA[
+    private MCRSalesOrderCancellation mcrSalesOrderCancelInit(TradeInventTransId _purchLineRefTransId)
+    {
+        MCRSalesOrderCancellation MCRSalesOrderCancellation;
+
+        if (isConfigurationkeyEnabled(configurationKeyNum(MCRCallCenter)))
+        {
+            SalesLine salesLine = SalesLine::findInventTransId(_purchLineRefTransId, true);
+            if (salesLine)
+            {
+                MCRSalesOrderCancellation = new MCRSalesOrderCancellation();
+                MCRSalesOrderCancellation.preCancel(SalesTable::find(salesLine.SalesId));
+            }
+        }
+        return MCRSalesOrderCancellation;
+    }
+
+]]></Source>
+			</Method>
+			<Method>
+				<Name>mcrSalesOrderCancel</Name>
+				<Source><![CDATA[
+    /// <summary>
+    /// Post the call center order cancellation.
+    /// </summary>
+    /// <param name = "_mcrSalesOrderCancellation">The call center order cancellation record.</param>
+    /// <param name = "_purchLineRefTransId">The linked purchase line.</param>
+    private void mcrSalesOrderCancel(MCRSalesOrderCancellation _mcrSalesOrderCancellation, TradeInventTransId _purchLineRefTransId)
+    {
+        if (isConfigurationkeyEnabled(configurationKeyNum(MCRCallCenter)))
+        {
+            SalesLine salesLine = SalesLine::findInventTransId(_purchLineRefTransId,true);
+            if (salesLine)
+            {
+                SalesTable salesTable = SalesTable::find(salesLine.SalesId, true);
+                if (salesLine.SalesStatus == SalesStatus::Canceled)
+                {
+                    SalesLine salesLineLocal = SalesLine::findRecId(salesLine.RecId);
+                    _mcrSalesOrderCancellation.postCancelLine(salesLineLocal);
+                    // Additional find in case the status changed in the postCancelLine method
+                    salesTable = SalesTable::find(salesLine.SalesId,true);
+
+                    if (salesTable.SalesStatus == SalesStatus::Canceled)
+                    {
+                        _mcrSalesOrderCancellation.postCancelOrder(salesTable);
+                    }
+                }
+
+                // Additional find in case the status changed in the postCancelLine or postCancelOrder method
+                salesTable = SalesTable::find(salesLine.SalesId, true);
+                _mcrSalesOrderCancellation.postCancelAdjPayment(salesTable);
+            }
+        }
+    }
+
+]]></Source>
+			</Method>
+		</Methods>
+	</SourceCode>
+</AxClass>
